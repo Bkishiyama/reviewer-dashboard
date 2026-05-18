@@ -1,0 +1,15 @@
+# .dockerignore — keeps generated files out of the Docker build context
+
+data/
+models/
+results/
+__pycache__/
+*.py[cod]
+*.pkl
+.git/
+.gitignore
+mininet/
+install.sh
+environment.yml
+Makefile
+README.md
