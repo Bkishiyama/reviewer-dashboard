@@ -1,7 +1,7 @@
-# requirements.txt — SDN Federated Anomaly Detection Tool
-# Install using bash: pip install -r requirements.txt
+# Software Defined Networks Federated Anomaly Detection Tool
+# Install with bash: pip install -r requirements.txt
 
-# Libraries to use
+# Libraries needed
 numpy>=1.24
 pandas>=2.0
 scikit-learn>=1.3
