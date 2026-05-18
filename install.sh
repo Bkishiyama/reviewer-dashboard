@@ -56,7 +56,7 @@ info "Installing Ryu SDN framework..."
 # It works with an older version
 pip3 install --user \
     ryu \
-    "eventlet==0.30.3" \
+    "eventlet==0.30.2" \
     "oslo.config" \
     "six"
 
