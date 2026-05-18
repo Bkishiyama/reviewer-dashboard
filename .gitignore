@@ -1,1 +1,28 @@
+# Generated data and model files
+data/
+models/
+results/
 
+# Python
+__pycache__/
+*.py[cod]
+*.pkl
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Environments
+.env
+.venv
+venv/
+env/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
