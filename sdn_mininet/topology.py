@@ -146,8 +146,8 @@ After traffic generation, label the attack flows:
 
   python mininet/label_window.py \\
     --file data/live_client2.csv \\
-    --start "2025-01-01T10:05:00" \\
-    --end   "2025-01-01T10:10:00" \\
+    --start "2026-05-18T10:05:00" \\
+    --end   "2026-05-18T10:10:00" \\
     --label 1
 """
 
