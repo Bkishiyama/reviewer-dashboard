@@ -9,8 +9,8 @@ See README for topology.
 
 Traffic generated:
 Benign  : iperf3 TCP/UDP streams, ping, curl-like HTTP
-DDoS    : hping3 SYN flood from h4 → h1
-Scan    : nmap port scan from h6 → h1..h5
+DDoS    : hping3 SYN flood from h4 -> h1
+Scan    : nmap port scan from h6 -> h1..h5
 
 Useage:
   sudo python mininet/topology.py [--attack]
