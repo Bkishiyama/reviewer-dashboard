@@ -164,7 +164,7 @@ def cmd_simulate_fl(args):
         n_estimators=cfg.get("n_estimators", 100),
     )
     
-    print(f"\n[✓] FL Simulation finished - {len(round_results)} rounds completed.")
+    print(f"\n[!] FL Simulation finished - {len(round_results)} rounds completed.")
 
 
 # Generate fake SDN flow data for testing the pipeline
