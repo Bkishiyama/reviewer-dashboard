@@ -121,7 +121,7 @@ def plot_confusion_matrix(
     if out_path:
         os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
         fig.savefig(out_path, dpi=150)
-        print(f"[Eval] Saved confusion matrix → {out_path}")
+        print(f"[Eval] Saved confusion matrix -> {out_path}")
     else:
         plt.show()
     
@@ -158,7 +158,7 @@ def plot_comparison_bar(
     if out_path:
         os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
         fig.savefig(out_path, dpi=150)
-        print(f"[Eval] Saved {metric} comparison chart → {out_path}")
+        print(f"[Eval] Saved {metric} comparison chart -> {out_path}")
     else:
         plt.show()
     
