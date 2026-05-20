@@ -1,0 +1,130 @@
+<mxfile host="Electron">
+  <diagram name="Page-1" id="fFqyiVt0BvzkAZcnZYKz">
+    <mxGraphModel dx="1414" dy="842" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="YDTIkUl-6pgufYU2Ai6U-1" parent="1" style="swimlane;whiteSpace=wrap;html=1;" value="SDN Flow Logs" vertex="1">
+          <mxGeometry height="60" width="400" x="230" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="YDTIkUl-6pgufYU2Ai6U-2" parent="YDTIkUl-6pgufYU2Ai6U-1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="client1.csv" vertex="1">
+          <mxGeometry height="30" width="60" x="50" y="30" as="geometry" />
+        </mxCell>
+        <mxCell id="YDTIkUl-6pgufYU2Ai6U-33" edge="1" parent="YDTIkUl-6pgufYU2Ai6U-1" source="YDTIkUl-6pgufYU2Ai6U-3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="200" y="100" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="YDTIkUl-6pgufYU2Ai6U-3" parent="YDTIkUl-6pgufYU2Ai6U-1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="client2.csv" vertex="1">
+          <mxGeometry height="30" width="60" x="170" y="30" as="geometry" />
+        </mxCell>
+        <mxCell id="YDTIkUl-6pgufYU2Ai6U-4" parent="YDTIkUl-6pgufYU2Ai6U-1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="client3.csv" vertex="1">
+          <mxGeometry height="30" width="60" x="290" y="30" as="geometry" />
+        </mxCell>
+        <mxCell id="YDTIkUl-6pgufYU2Ai6U-8" connectable="0" parent="1" style="group" value="" vertex="1">
+          <mxGeometry height="120" width="275" x="292.5" y="190" as="geometry" />
+        </mxCell>
+        <mxCell id="YDTIkUl-6pgufYU2Ai6U-5" parent="YDTIkUl-6pgufYU2Ai6U-8" style="rounded=1;whiteSpace=wrap;html=1;" value="" vertex="1">
+          <mxGeometry height="120" width="270" x="5" as="geometry" />
+        </mxCell>
+        <mxCell id="YDTIkUl-6pgufYU2Ai6U-6" parent="YDTIkUl-6pgufYU2Ai6U-8" style="text;strokeColor=none;fillColor=none;html=1;fontSize=13;fontStyle=1;verticalAlign=middle;align=center;autosizeText=1;" value="Feature Extraction (features.py)" vertex="1">
+          <mxGeometry height="40" width="200" x="50" y="10" as="geometry" />
+        </mxCell>
+        <mxCell id="YDTIkUl-6pgufYU2Ai6U-7" parent="YDTIkUl-6pgufYU2Ai6U-8" style="text;strokeColor=none;fillColor=none;html=1;whiteSpace=wrap;verticalAlign=middle;overflow=hidden;" value="&lt;ul&gt;&lt;li&gt;Normalize: bytes, packets, duration&lt;/li&gt;&lt;li&gt;Encode: protocol - TCP, UDP, ICMP&lt;/li&gt;&lt;li&gt;Bin: src_port, dst_port&lt;/li&gt;&lt;li&gt;Derive: bytes_per_packet, packet_rate&lt;/li&gt;&lt;/ul&gt;" vertex="1">
+          <mxGeometry height="80" width="270" y="30" as="geometry" />
+        </mxCell>
+        <mxCell id="YDTIkUl-6pgufYU2Ai6U-22" connectable="0" parent="1" style="group" value="" vertex="1">
+          <mxGeometry height="60" width="520" x="170" y="358" as="geometry" />
+        </mxCell>
+        <mxCell id="YDTIkUl-6pgufYU2Ai6U-11" connectable="0" parent="YDTIkUl-6pgufYU2Ai6U-22" style="group" value="" vertex="1">
+          <mxGeometry height="60" width="120" as="geometry" />
+        </mxCell>
+        <mxCell id="YDTIkUl-6pgufYU2Ai6U-9" parent="YDTIkUl-6pgufYU2Ai6U-11" style="rounded=1;whiteSpace=wrap;html=1;" value="" vertex="1">
+          <mxGeometry height="60" width="120" as="geometry" />
+        </mxCell>
+        <mxCell id="YDTIkUl-6pgufYU2Ai6U-10" parent="YDTIkUl-6pgufYU2Ai6U-11" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="Local IF&lt;div&gt;Client 1&lt;/div&gt;" vertex="1">
+          <mxGeometry height="30" width="60" x="30" y="15" as="geometry" />
+        </mxCell>
+        <mxCell id="YDTIkUl-6pgufYU2Ai6U-14" connectable="0" parent="YDTIkUl-6pgufYU2Ai6U-22" style="group" value="" vertex="1">
+          <mxGeometry height="60" width="120" x="200" as="geometry" />
+        </mxCell>
+        <mxCell id="YDTIkUl-6pgufYU2Ai6U-43" edge="1" parent="YDTIkUl-6pgufYU2Ai6U-14" source="YDTIkUl-6pgufYU2Ai6U-15" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;startSize=6;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="60" y="112" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="YDTIkUl-6pgufYU2Ai6U-15" parent="YDTIkUl-6pgufYU2Ai6U-14" style="rounded=1;whiteSpace=wrap;html=1;" value="" vertex="1">
+          <mxGeometry height="60" width="120" as="geometry" />
+        </mxCell>
+        <mxCell id="YDTIkUl-6pgufYU2Ai6U-16" parent="YDTIkUl-6pgufYU2Ai6U-14" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="Local IF&lt;div&gt;Client 2&lt;/div&gt;" vertex="1">
+          <mxGeometry height="30" width="60" x="30" y="15" as="geometry" />
+        </mxCell>
+        <mxCell id="YDTIkUl-6pgufYU2Ai6U-17" connectable="0" parent="YDTIkUl-6pgufYU2Ai6U-22" style="group" value="" vertex="1">
+          <mxGeometry height="60" width="120" x="400" as="geometry" />
+        </mxCell>
+        <mxCell id="YDTIkUl-6pgufYU2Ai6U-18" parent="YDTIkUl-6pgufYU2Ai6U-17" style="rounded=1;whiteSpace=wrap;html=1;" value="" vertex="1">
+          <mxGeometry height="60" width="120" x="-10" as="geometry" />
+        </mxCell>
+        <mxCell id="YDTIkUl-6pgufYU2Ai6U-19" parent="YDTIkUl-6pgufYU2Ai6U-17" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="Local IF&lt;div&gt;Client 3&lt;/div&gt;" vertex="1">
+          <mxGeometry height="30" width="60" x="30" y="15" as="geometry" />
+        </mxCell>
+        <mxCell id="YDTIkUl-6pgufYU2Ai6U-24" connectable="0" parent="1" style="group" value="" vertex="1">
+          <mxGeometry height="90" width="320" x="270" y="470" as="geometry" />
+        </mxCell>
+        <mxCell id="YDTIkUl-6pgufYU2Ai6U-25" parent="YDTIkUl-6pgufYU2Ai6U-24" style="rounded=1;whiteSpace=wrap;html=1;" value="" vertex="1">
+          <mxGeometry height="90" width="305" x="5" as="geometry" />
+        </mxCell>
+        <mxCell id="YDTIkUl-6pgufYU2Ai6U-26" parent="YDTIkUl-6pgufYU2Ai6U-24" style="text;strokeColor=none;fillColor=none;html=1;fontSize=13;fontStyle=1;verticalAlign=middle;align=center;autosizeText=1;" value="Federated Aggregation (federated.py)" vertex="1">
+          <mxGeometry height="30" width="230" x="50" y="7.5" as="geometry" />
+        </mxCell>
+        <mxCell id="YDTIkUl-6pgufYU2Ai6U-27" parent="YDTIkUl-6pgufYU2Ai6U-24" style="text;strokeColor=none;fillColor=none;html=1;whiteSpace=wrap;verticalAlign=middle;overflow=hidden;" value="&lt;ul&gt;&lt;li&gt;Score ensemble&lt;/li&gt;&lt;li&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;Threshold consensus&lt;/span&gt;&lt;/li&gt;&lt;/ul&gt;" vertex="1">
+          <mxGeometry height="60" width="270" y="20" as="geometry" />
+        </mxCell>
+        <mxCell id="YDTIkUl-6pgufYU2Ai6U-29" connectable="0" parent="1" style="group" value="" vertex="1">
+          <mxGeometry height="90" width="320" x="270" y="610" as="geometry" />
+        </mxCell>
+        <mxCell id="YDTIkUl-6pgufYU2Ai6U-30" parent="YDTIkUl-6pgufYU2Ai6U-29" style="rounded=1;whiteSpace=wrap;html=1;" value="" vertex="1">
+          <mxGeometry height="90" width="305" x="5" as="geometry" />
+        </mxCell>
+        <mxCell id="YDTIkUl-6pgufYU2Ai6U-31" parent="YDTIkUl-6pgufYU2Ai6U-29" style="text;strokeColor=none;fillColor=none;html=1;fontSize=13;fontStyle=1;verticalAlign=middle;align=center;autosizeText=1;" value="Global Anomaly Detector (detect.py)" vertex="1">
+          <mxGeometry height="30" width="230" x="50" y="7.5" as="geometry" />
+        </mxCell>
+        <mxCell id="YDTIkUl-6pgufYU2Ai6U-32" parent="YDTIkUl-6pgufYU2Ai6U-29" style="text;strokeColor=none;fillColor=none;html=1;whiteSpace=wrap;verticalAlign=middle;overflow=hidden;" value="&lt;ul&gt;&lt;li&gt;Score new SDN flows&lt;/li&gt;&lt;li&gt;Flag: is_anomaly = True&lt;/li&gt;&lt;li&gt;Output: annotated CSV&lt;/li&gt;&lt;/ul&gt;" vertex="1">
+          <mxGeometry height="60" width="270" y="20" as="geometry" />
+        </mxCell>
+        <mxCell id="YDTIkUl-6pgufYU2Ai6U-36" edge="1" parent="1" source="YDTIkUl-6pgufYU2Ai6U-5" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="420" y="460" as="sourcePoint" />
+            <mxPoint x="433" y="358" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="YDTIkUl-6pgufYU2Ai6U-37" edge="1" parent="1" source="YDTIkUl-6pgufYU2Ai6U-5" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=1;entryY=0;entryDx=0;entryDy=0;" target="YDTIkUl-6pgufYU2Ai6U-9" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="420" y="460" as="sourcePoint" />
+            <mxPoint x="470" y="410" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="YDTIkUl-6pgufYU2Ai6U-38" edge="1" parent="1" source="YDTIkUl-6pgufYU2Ai6U-5" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0;entryDx=0;entryDy=0;" target="YDTIkUl-6pgufYU2Ai6U-18" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="440" y="320" as="sourcePoint" />
+            <mxPoint x="570" y="360" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="YDTIkUl-6pgufYU2Ai6U-44" edge="1" parent="1" source="YDTIkUl-6pgufYU2Ai6U-18" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.802;entryY=0.006;entryDx=0;entryDy=0;entryPerimeter=0;" target="YDTIkUl-6pgufYU2Ai6U-25">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="YDTIkUl-6pgufYU2Ai6U-45" edge="1" parent="1" source="YDTIkUl-6pgufYU2Ai6U-9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="341" y="470" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="YDTIkUl-6pgufYU2Ai6U-46" edge="1" parent="1" source="YDTIkUl-6pgufYU2Ai6U-25" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="YDTIkUl-6pgufYU2Ai6U-30" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="580" y="590" as="sourcePoint" />
+            <mxPoint x="630" y="540" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
