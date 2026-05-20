@@ -166,19 +166,19 @@ def plot_comparison_bar(
 
 
 # Pretty print the results
-def _print_report(r: dict):
-    """Internal function to print formatted evaluation results."""
+# Internal function to print formatted evaluation results
+def _print_report(r: dict):  
     cm = r["confusion_matrix"]
     tn, fp, fn, tp = cm.ravel() if cm.size == 4 else (0, 0, 0, 0)
     
-    sep = "─" * 42
+    sep = "─" * 50
     print(f"\n{sep}")
     print(f" Results: {r['label']}")
     print(sep)
-    print(f" Accuracy  : {r['accuracy']:.4f}")
-    print(f" Precision : {r['precision']:.4f}")
-    print(f" Recall    : {r['recall']:.4f}")
-    print(f" F1 Score  : {r['f1']:.4f}")
+    print(f"   Accuracy = {r['accuracy']:.4f}")
+    print(f"  Precision = {r['precision']:.4f}")
+    print(f"     Recall = {r['recall']:.4f}")
+    print(f"   F1 Score = {r['f1']:.4f}")
     
     if "roc_auc" in r and r["roc_auc"] is not None:
         print(f" ROC-AUC   : {r['roc_auc']:.4f}")
