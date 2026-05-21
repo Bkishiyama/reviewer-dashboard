@@ -13,10 +13,10 @@ Overall, this system uses **Federated Learning (FL)**, which allows organization
 
 ## Video Presentation
 
-> **[See video presentations]** 
+> **[See video presentations]**
+> [SDN FL Anomaly Detection Tool](https://youtu.be/ba_NrpwrSyE)
+> [SDN FL Anomaly Detection on Ubuntu (Optional)](https://youtu.be/Rrwn5y1k69c)
 
-[SDN FL Anomaly Detection Tool](https://youtu.be/ba_NrpwrSyE)
-[SDN FL Anomaly Detection on Ubuntu (Optional)](https://youtu.be/Rrwn5y1k69c)
 ---
 
 ## Table of Contents
