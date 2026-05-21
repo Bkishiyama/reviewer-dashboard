@@ -6,8 +6,7 @@ This is a modular Python tool that generates **SDN flow logs** and uses them to 
 **Isolation Forest**  is a maching learning (ML) algorithm used for finding unusual data points in a dataset.
 Each organization trains its own model locally, and the resulting model updates are combined to create a global federated model. 
 Isolation Forest anomaly detectors are implanted across participating organizations to identify suspicious network behavior. 
-Overall, this system uses **Federated Learning (FL)**, which allows organizations to collaboratively train and improve a global ML model 
-- without exposing any of their private data with other participants.
+Overall, this system uses **Federated Learning (FL)**, which allows organizations to collaboratively train and improve a global ML model, without exposing any of their private data with other participants.
 
 ---
 
