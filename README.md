@@ -15,9 +15,10 @@ Overall, this system uses **Federated Learning (FL)**, which allows organization
 Watch my videos:
 
 > [SDN FL Anomaly Detection Tool](https://youtu.be/ba_NrpwrSyE)  
-> [Docker Copy and Paste](https://1drv.ms/w/c/0b9ef4570f82165e/IQD-QWe9zvwpRKE1oNgw0TT4ATfUrsw-xcZuEtRkoxQL8yA?e=jBDDw0)
+> [with Docker copy-and-paste commands](https://1drv.ms/w/c/0b9ef4570f82165e/IQD-QWe9zvwpRKE1oNgw0TT4ATfUrsw-xcZuEtRkoxQL8yA?e=jBDDw0)
  
-> [SDN FL Anomaly Detection on Ubuntu (Optional)](https://youtu.be/Rrwn5y1k69c)
+> [SDN FL Anomaly Detection on Ubuntu (Optional)](https://youtu.be/Rrwn5y1k69c)  
+> [with Ubuntu copy-and-past commands](https://1drv.ms/w/c/0b9ef4570f82165e/IQAmXO4cxcotSavnhSNEXlNkAXPqC-59fMAETPiFewCAOAU?e=gws1CK) 
 
 ---
 
