@@ -111,7 +111,7 @@ In this system, each raw flow is represented using eight numeric features.
 
 ### Federated Aggregation Design
 
-I use **Strategy A Score Ensemble**  aggregation strategy.   
+I use a **Score Ensemble**  aggregation strategy.   
 This is where each client uses its own model and scaler to assign an anomaly score to new network flows. 
 All clients send these scores to the central model, in which they are averaged to produce a final global anomaly score. 
 The client's raw data is not shared with the central model - only the computed scores. 
