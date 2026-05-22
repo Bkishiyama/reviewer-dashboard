@@ -12,8 +12,7 @@ If you want to see more action, and have Ubuntu 20.04, run it:
 [Run system on Ubuntu 20.04](https://1drv.ms/w/c/0b9ef4570f82165e/IQAmXO4cxcotSavnhSNEXlNkAXPqC-59fMAETPiFewCAOAU?e=gws1CK) 
 
 ### Other Notes
-Rough Draft notes on Feature Engineering to be revised and inserted into README.md
-[Feature Engineering](https://1drv.ms/w/c/0b9ef4570f82165e/IQChg9014r_vQ4ej1sI0ZXl5AaSocSKd_ogjEY5yLk53cWg?e=CUnYon)
+[Feature Engineering Notes](https://1drv.ms/w/c/0b9ef4570f82165e/IQChg9014r_vQ4ej1sI0ZXl5AaSocSKd_ogjEY5yLk53cWg?e=CUnYon)
 
 ## AI Use
 
