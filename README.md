@@ -1,5 +1,8 @@
 # SDN Federated Learning Model with Poisoning Guard
 
+![Network](docs/network.jpg)
+
+
 **Tool 2: Model Posioning Sanitizer**
 
 This tool extends Tool 1 of my sdn-fl-detector repository. Most files have not changed. It's goal is to secure the machine learning (ML) pipeline. 
