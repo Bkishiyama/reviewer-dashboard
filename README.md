@@ -542,11 +542,14 @@ The Federated Learning architecture splits the workload between individual local
   - This process is the core of Federated Learning. It creates a massive, network wide protection shield; every participant benefits from the collective knowledge of the entire group. They will be able to spot advanced threats like DDoS attacks together while keeping their own local data and completely private and secure.
 ---
   2.5 The Zero-Trust Security Guard
+  
   This is Tool 2 that I am adding to Tool 1.  
   - src/sanitizer.py
     -  This program (Step 4.5) is next in the pipeline. Before the coordinator runs the Score Ensemble or Threshold Consensus, it inspects the client data that it receives. When it receives data from a client, the data is compared against the groups data by using a Z-score. The Z-score measures client values against the group's values and determines if there are any deviations. If there are deviations, the data is dropped and data gets logged as a security violation. This way, the data is not injected into the FL model. The FL model is forumulated without corrupted data and thus remains reliable. 
 ---
-3. Detection & Evaluation Once the global federated model is built, it needs to be put to work and its performance measured.
+3. Detection & Evaluation
+
+Once the global federated model is built, it needs to be put to work and its performance measured.
   -	src/detect.py 
     - This fifth program is the production engine, which means it is the part of the project that actually goes to work protecting the network in real time. Once the master AI model is built by the team of computers, this program uses that collective intelligence to analyze live, new network traffic as it flows by.
     - The program evaluates every connection and automatically tags the data with three specific labels: 
