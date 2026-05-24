@@ -32,7 +32,7 @@ reports, vol. 15, no. 1, pp. 41 390–25, 2025, place: London
 Publisher: Nature Publishing Group UK. [Online]. Available:
 https://doaj.org/article/2500419466604c8eba835393bf37c5da
 
-I studied the paper and will probably do something similar. I did not use this paper's testing method.
+I studied the paper and will probably do something similar. Amin et al. provides a GitHub model that I do not rely on. I read about it but have not used, tested, or replicated their study.
 
 I fed the parameters into co-pilot to help me make a novel tool for this project.
 "What is a novel tool that I can make that is used in SDN and utilizes FL in a network."
@@ -40,3 +40,5 @@ I fed the parameters into co-pilot to help me make a novel tool for this project
 My prior studies that I did apply to this project is the development of mininet and making an SDN model there.
 This was to only make an emulated network inside mininet for eventual testing - hopefully for my dissertation.
 Amin et al. is what I wanted to do. But, I am staying flexible and hopefully can develop a topic for my dissertation.
+
+I use FlexClip to generate .jpg pictures. I have a license to create AI images that are not subject to copyright laws. I use drawio to create .svg diagrams; this contains pre-drawn shapes but does not rely on AI.
