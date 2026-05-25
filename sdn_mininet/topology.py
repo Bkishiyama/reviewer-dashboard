@@ -8,14 +8,14 @@ attack traffic so the Ryu collector captures a realistic mix.
 See README for topology.
 
 Traffic generated:
-Benign  : iperf3 TCP/UDP streams, ping, curl-like HTTP
-DDoS    : hping3 SYN flood from h4 -> h1
-Scan    : nmap port scan from h6 -> h1..h5
+Benign: iperf3 TCP/UDP streams, ping, curl-like HTTP
+DDoS: hping3 SYN flood from h4 -> h1
+Scan: nmap port scan from h6 -> h1..h5
 
-Useage:
-  sudo python3 mininet/topology.py [--attack]
-    --attack   also launch attack traffic generators (default: benign only)
-    --time N   run for N seconds (default: 60)
+Usage:
+sudo python3 mininet/topology.py [--attack]
+  --attack   also launch attack traffic generators (default: benign only)
+  --time N   run for N seconds (default: 60)
 
 Requirements (installed by install.sh):
   Mininet, hping3, nmap, iperf3
