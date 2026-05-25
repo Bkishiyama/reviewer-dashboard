@@ -1,6 +1,7 @@
 # Software Defined Networks Federated Anomaly Detection Tool
 # Install with bash: pip install -r requirements.txt
 
+# Tool 1 Set up
 # Libraries needed
 numpy>=1.24
 pandas>=2.0
@@ -15,3 +16,11 @@ pyyaml>=6.0
 # Libraries for plotting and visualization
 matplotlib>=3.7
 seaborn>=0.12
+
+# Tool 2 additions
+pytest>=7.4.0  # for running tests/test_sanitizer.py
+webob>=1.8.7  # required by Ryu REST API
+ 
+# Optional: Ryu + Mininet (Linux only — install via install.sh or apt)
+# ryu>=4.34
+# mininet (install via: sudo apt-get install mininet)
