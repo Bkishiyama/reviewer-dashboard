@@ -1,35 +1,34 @@
-"""
-sdn_mininet/ryu_collector.py
+""" sdn_mininet/ryu_collector.py
 Tool 2, runs in the Ryu Controller, intercepts data, validates via Z-score, then aggregates.
 
 This is an extension of Tool 1.
 It adds the REST endpoints so that Mininet hosts can upload their metrics to the controller.
-    - REST endpoint: POST /fl/upload  (clients push local model metrics)
-    - REST endpoint: GET  /fl/status  (query current global model state)
-    - Calls src.sanitizer.aggregate_with_sanitizer() before running FedAvg
-    - Logs all poisoning alerts to ryu_sanitizer.log
-    - Treats all incoming model updates as untrusted until statistically verified
+- REST endpoint: POST /fl/upload  (clients push local model metrics)
+- REST endpoint: GET  /fl/status  (query current global model state)
+- Calls src.sanitizer.aggregate_with_sanitizer() before running FedAvg
+- Logs all poisoning alerts to ryu_sanitizer.log
+- Treats all incoming model updates as untrusted until statistically verified
 
 Usage: ryu-manager sdn_mininet/ryu_collector.py --observe-links
 
 REST API (runs on port 8080):
-    - Upload client's model update to Ryu controller
-    POST /fl/upload
-        Body: {"host_id": "h1", "metric": 0.12}
-        Response: {"status": "queued", "host_id": "h1"}
+- Upload client's model update to Ryu controller
+POST /fl/upload
+    Body: {"host_id": "h1", "metric": 0.12}
+    Response: {"status": "queued", "host_id": "h1"}
 
-    - get all uploaded model metrics and sanitize them, then calc FedAvg
-    GET /fl/aggregate
-        Triggers sanitized aggregation over all queued uploads.
-        Response: {"global_model": 0.13, "accepted": [...], "rejected": [...]}
+- get all uploaded model metrics and sanitize them, then calc FedAvg
+GET /fl/aggregate
+    Triggers sanitized aggregation over all queued uploads.
+    Response: {"global_model": 0.13, "accepted": [...], "rejected": [...]}
 
-    - get clients that submitted data that has not yet been processed
-    GET /fl/status
-        Response: {"queued_hosts": [...], "last_global_model": 0.13}
+- get clients that submitted data that has not yet been processed
+GET /fl/status
+    Response: {"queued_hosts": [...], "last_global_model": 0.13}
 
-    - clear the queue
-    GET /fl/reset
-        Clears the upload queue for the next FL round.
+- clear the queue
+GET /fl/reset
+    Clears the upload queue for the next FL round.
 """
 
 from __future__ import annotations
