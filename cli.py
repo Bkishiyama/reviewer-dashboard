@@ -279,6 +279,13 @@ def build_parser() -> argparse.ArgumentParser:
     # Higher values may improve stability but increase training time.
     sp.add_argument("--n-estimators", type=int, default=100)
 
+    # Tool2: Expected anomaly rate used by Isolation Forest
+    # Use 'auto' to allow the model to decide, or use a float, e.g. 0.05
+    sp.add_argument(
+        "--contamination",
+        default="auto",
+        help="Expected anomaly rate (auto or float)"
+    
     # Set the default function to run when the "train" command is selected.
     # This connects the parsed CLI arguments to the cmd_train_local handler
     sp.set_defaults(func=cmd_train_local)
