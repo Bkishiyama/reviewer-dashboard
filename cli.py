@@ -285,6 +285,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--contamination",
         default="auto",
         help="Expected anomaly rate (auto or float)"
+    )
     
     # Set the default function to run when the "train" command is selected.
     # This connects the parsed CLI arguments to the cmd_train_local handler
