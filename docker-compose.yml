@@ -1,4 +1,4 @@
-# docker-compose.yml — SDN Federated Anomaly Detection Tool
+# docker-compose.yml — SDN Poison Guard Tool
 #
 # Usage:
 # docker compose up # run full pipeline, results saved to ./results/
@@ -7,8 +7,8 @@
 services:
   tool:
     build: .
-    image: sdn-fl-detector
-    container_name: sdn-fl-detector
+    image: sdn-poison-guard
+    container_name: sdn-poison-guard
     volumes:
       # Results are written here so you can access them on your host machine
       - ./results:/app/results
