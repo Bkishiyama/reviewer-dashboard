@@ -26,14 +26,15 @@ data:
 # Local training
 train: train-c1 train-c2 train-c3
 
+# Tool 2 Note: change train-local in all to train
 train-c1:
-	$(CLI) train-local --data data/client1.csv --out models/client1.pkl --client-id client1
+	$(CLI) train --data data/client1.csv --out models/client1.pkl --client-id client1
 
 train-c2:
-	$(CLI) train-local --data data/client2.csv --out models/client2.pkl --client-id client2
+	$(CLI) train --data data/client2.csv --out models/client2.pkl --client-id client2
 
 train-c3:
-	$(CLI) train-local --data data/client3.csv --out models/client3.pkl --client-id client3
+	$(CLI) train --data data/client3.csv --out models/client3.pkl --client-id client3
 
 # Federated aggregation
 aggregate:
