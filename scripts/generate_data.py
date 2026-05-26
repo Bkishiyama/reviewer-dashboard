@@ -13,7 +13,7 @@ Each client gets slightly different attack patterns to simulate
 real-world non-IID data in federated learning.
 """
 
-from __future__import annotations
+from __future__ import annotations
 import os
 import numpy as np
 import pandas as pd
