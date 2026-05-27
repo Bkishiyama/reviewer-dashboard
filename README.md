@@ -119,6 +119,8 @@ IN PROGRESS - UPDATE and REMOVE when completed
 
 Tool 2's has added programs to Tool 1
 
+---
+
 #### topology.py
 
 This is the file that builds Mininet virtual network.
@@ -205,6 +207,7 @@ In summary, the Tool 2 pipeline:
 
 
 #### Tool 1 Development
+
 | Module | File | Responsibility |
 |---|---|---|
 | Feature Extractor | `src/features.py` | Normalize numeric fields, encode protocol/ports, compute derived features |
@@ -215,7 +218,7 @@ In summary, the Tool 2 pipeline:
 | CLI | `src/cli.py` | Argparse-based interface wiring all modules |
 | Data Generator | `scripts/generate_data.py` | Synthetic SDN flow CSV generator for quick-start testing |
 
-***
+---
 
 ### Feature Engineering
 
