@@ -115,6 +115,96 @@ IN PROGRESS - UPDATE and REMOVE when completed
 ---
 ### Core Components
 
+![Tool 2 added](docs/tool2added.drawio.svg)
+
+Tool 2's has added programs to Tool 1
+
+#### topology.py
+
+This is the file that builds Mininet virtual network.
+Inside this file, the build() method:
+- creates hosts and switches
+- links the hosts ↔ switches
+- links switches ↔ switches
+- assigns IPs
+- sets the link parameters
+- prepares the network for traffic generation
+  - start_benign_traffic(): Starts normal background traffic for training.
+  - start_attack_traffic(): Starts malicious traffic for labeling and testing.
+  - label_attack_flows(): Runs your labeling script to mark attack flows.
+  - run(): Starts Mininet, launches traffic, and labels data flow. 
+ryu_collector.py
+This file is for collecting flow stats, and where I added REST endpoints to upload metrics - for Tool 2. The program has a SDNSanitizerController class , a data traffic manager, does:
+- Negotiates traffice when a switch connects, Ryu asks: “What OpenFlow features do you support?”
+- Deals with packets that the switch sends to the controller, e.g. an unknown MAC, ARP request, or packets that miss the flow table.
+- Receive flow statistics reports from switches, e.g., number of bytes, packets, and match fields.
+- Polls switches for updated stats.
+
+In summary, I extended this file. I first built ryu_collector.py for Tool 1 (SDN Flow Log Collection). I expanded it to act as the REST API interface for Tool 2, my federated learning system. I added endpoints that:
+- Uploads new metrics from each client to the federated model as hosts push flow feature summaries or anomaly scores
+- Send client side model updates to the central server, i.e., Isolation Forest parameters.
+- Starts the federated aggregation in which the server combines all client models into the Global IDS.
+- Reports client status back to the controller, e.g., “model uploaded,” “aggregation complete,” “ready for next round.”
+
+#### local_train.py
+
+This program is used for Isolation Forest to train on incoming packet flow features.
+1. Loads the local client’s flow feature CSV
+2. Trains an Isolation Forest model on those features
+3. Saves the trained model so it can be sent to the central controller. 
+
+#### federated.py
+
+This program is the used for the server FL system. It takes the Isolation Forest models trained by each client and combine them into a single Global IDS model. The file:
+1. Loads client models: load_client_models() reads each client’s uploaded model bundle and prepares them for aggregation
+2. Combines client anomaly scores: federated_score_ensemble() merges client predictions into a unified anomaly score for each flow
+3. Determins a shared anomaly threshold: federated_threshold_consensus() computes a global threshold based on client side thresholds
+4. Aggregates and saves the global model: aggregate_and_save() performs the FedAvg style aggregation and writes out the Global IDS model
+5. Runs simulated FL rounds: simulate_fl_rounds() allows you test multiple rounds of federated training without running Mininet
+
+#### sanitize.py 
+
+This program acts as a filter that protects the FL process from malicious client updates. It evaluates each client’s update and decides whether it should be accepted, rejected, or flagged before it is injected to federated.py for aggregation. 
+1. Computes stats on client updates: The mean, standard deviations, and Z scores are calculated when a client sends its vector
+2. Determines poisoned updates: If the poisoning_detected function calculates that the client’s update is not within a normal range, based on a Z-score threshold, it is marked as suspicous.
+3. Accepts or rejects a client update: sanitize_vector_updates stores a list, in HostReport.reason, of accepted and rejected hosts, due to “too large,” “outlier,” or “failed threshold.”
+4. Stores a sanitation report that summarizes:
+   - how many clients submitted
+   - how many were accepted
+   - how many were rejected
+   - which hosts were problematic
+   - the Z threshold used
+
+#### detect.py
+This program takes the Global IDS model, made by federated aggregation, and applies it to new and incoming packet flows. It has two main functions:
+1. detects() function loads the global Isolation Forest model, reads a batch of flow feature rows, and computes:
+   - anomaly scores
+   - binary anomaly labels
+   - ranked anomaly severity
+   - It then writes the detection results to evaluation.py.
+2. detect_local() function runs detection runs detection using a local model instead of the global one. This is used for debugging or comparing local vs. federated performance.
+
+#### evaluate.py 
+
+This program determines the effectiveness of my setup. It takes the outputs from detection.py and computes the standard evaluation metrics. This allows the visualization of results. It does:
+1. Computes metrics: The compute_metrics() functions calculates accuracy, precision, recall, F1 score, and confusion matrix values.
+2. Compares different setups: To ensure the results are worthwhile, different values are compared. For example, I compare local vs. federated and sanitized vs. unsanitized after calculating the results for each.
+3. Plots the confusion matrix to show true positives, false positives, true negatives, and false negatives.
+4. Creates bar charts to compare metrics across multiple setups or models.
+5. Formats and prints an evaluation summary for console output and for later review.
+
+#### Summary
+
+In summary, the Tool 2 pipeline:
+1. Mininet + Ryu collect flow stats
+2. features.py extracts numerical features
+3. local_train.py trains local Isolation Forests
+4. federated.py aggregates them into a Global IDS
+5. detect.py applies that global model to new flows
+6. evaluate.py determines the effectiveness of the system.
+
+
+#### Tool 1 Development
 | Module | File | Responsibility |
 |---|---|---|
 | Feature Extractor | `src/features.py` | Normalize numeric fields, encode protocol/ports, compute derived features |
@@ -125,7 +215,6 @@ IN PROGRESS - UPDATE and REMOVE when completed
 | CLI | `src/cli.py` | Argparse-based interface wiring all modules |
 | Data Generator | `scripts/generate_data.py` | Synthetic SDN flow CSV generator for quick-start testing |
 
-IN PROGRESS - UPDATE and REMOVE when completed
 ***
 
 ### Feature Engineering
