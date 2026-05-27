@@ -97,11 +97,12 @@ IN PROGRESS - UPDATE and REMOVE when completed
 ![Architecture Diagram](docs/sdn-poison-guard.drawio.svg)
 
 IN PROGRESS - UPDATE and REMOVE when completed
+
 This shows how each host will send its local training metric to the Controller. There is will be used to calculate the global ML model.
 If a host sends corrupted data, it will make the global model ineffective. So, it must be sanitized.
 After it the data from all clients is santized, with the use of Z-score calculations, the global model is generated to find incoming threats.
 
-
+---
 
 ### Architecture for Tool 1
 
