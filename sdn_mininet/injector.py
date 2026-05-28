@@ -82,7 +82,7 @@ OFPXMC_OPENFLOW_BASIC = 0x8000
 # - TCP destination port = target_port
 OXM_FIELD_ETH_TYPE = 5
 OXM_FIELD_IP_PROTO = 10
-OXM_FIELD_TCP_DST = 22
+OXM_FIELD_TCP_DST = 14
 # Wildcard constants used by FlowMod messages
 OFPP_ANY = 0xFFFFFFFF
 OFPG_ANY = 0xFFFFFFFF
