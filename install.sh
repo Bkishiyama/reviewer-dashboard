@@ -103,6 +103,7 @@ fi
 
 info "Installing Python dependencies..."
 pip3 install --user -r requirements.txt
+sudo pip3 install scapy
 
 # Step 5: Quick Mininet self-test
 
