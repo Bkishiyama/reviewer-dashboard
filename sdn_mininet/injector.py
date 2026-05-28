@@ -270,9 +270,9 @@ class ControlChannelSniffer:
 
     """Initialize the passive OpenFlow sniffer. 
     Parameters: 
-    - iface : Network interface to monitor 
-    - sniff_port : Controller TCP port to watch for OF traffic 
-    - on_detect : Callback function executed after traffic is detected """
+    - iface: Network interface to monitor 
+    - sniff_port: Controller TCP port to watch for OF traffic 
+    - on_detect: Callback function executed after traffic is detected """
     def __init__(self, iface: str, sniff_port: int, on_detect):
         self.iface = iface
         self.sniff_port = sniff_port
