@@ -1,6 +1,8 @@
 <p align="center">
   <img src="docs/netocto.jpg" width="350">
+  <img src="docs/masked.jpg" width="350">
 </p>
+
 
 
 # SDN Federated Learning Model with Poisoning Guard
