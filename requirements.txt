@@ -28,5 +28,6 @@ webob>=1.8.7  # required by Ryu REST API
 # requirements.txt -> SDN FlowMod Injection Lab (Tool 3)
 # Install with:  pip3 install -r requirements.txt
 
-# Packet capture and crafting (Phase 1 sniffer)
-scapy>=2.5.0
+# Packet capture and crafting (Phase 1 sniffer) 
+# I hardcode this with this version since I use Python 3.8. It is compat.
+scapy==2.5.0
