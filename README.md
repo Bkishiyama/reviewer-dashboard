@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/netocto.jpg" width="400">
+  <img src="docs/netocto.jpg" width="350">
 </p>
 
 
