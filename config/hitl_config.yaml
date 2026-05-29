@@ -1,0 +1,404 @@
+# config/hitl_config.yaml
+# Tool 4 — Human-in-the-Loop Security Dashboard Configuration
+#
+# This file controls every tunable parameter for the HITL pipeline:
+#   detection thresholds, dashboard server settings, SDN mitigation
+#   behaviour, alert queue limits, and notification preferences.
+#
+# Read by:  dashboard/app.py  (via load_hitl_config() helper)
+#           cli.py cmd_dashboard()
+#
+# All values here can also be overridden by environment variables.
+# The env-var name is shown in parentheses next to each key.
+# Environment variables take precedence over file values — useful
+# for Docker / CI deployments where you don't want to edit the file.
+#
+# Usage:
+#   python3 cli.py dashboard --config config/hitl_config.yaml \
+#                            --model  models/global.pkl        \
+#                            --data   data/new_flows.csv
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 1. DETECTION
+# Controls how detect.py scores flows and which scores become alerts.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+detection:
+
+  # Path to the trained federated model bundle (.pkl).
+  # Produced by:  python3 cli.py federate --models "models/client*.pkl"
+  #               --out models/global.pkl
+  # (env: MODEL_PATH)
+  model_path: models/global.pkl
+
+  # Flow CSV to score.  In live mode this is one of the files written
+  # continuously by ryu_collector.py.  In offline mode it is a static
+  # test file such as data/new_flows.csv.
+  # (env: DATA_PATH)
+  data_path: data/new_flows.csv
+
+  # Manual anomaly score threshold override.
+  # null  → use the federated consensus threshold stored in the model
+  #         bundle (bundle["global_threshold"]).  Falls back to the
+  #         5th-percentile of actual batch scores if that flags nothing.
+  # float → use this value directly, e.g. -0.35
+  # (env: ANOMALY_THRESHOLD)
+  anomaly_threshold: null
+
+  # Minimum confidence percentage (0–100) for a flagged flow to become
+  # a dashboard alert.  Confidence is derived from anomaly rank within
+  # the scored batch: top-ranked flow = ~100%, bottom = ~0%.
+  # Raise this to reduce alert noise; lower it to catch subtler attacks.
+  # Corresponds to MIN_ALERT_CONFIDENCE in app.py.
+  # (env: MIN_ALERT_CONFIDENCE)
+  min_confidence: 50.0
+
+  # Maximum number of new alerts created per scan batch.
+  # Prevents the dashboard from being flooded during a large-scale attack
+  # where hundreds of flows are flagged simultaneously.
+  # (env: MAX_ALERTS_PER_SCAN)
+  max_alerts_per_scan: 20
+
+  # Additional live CSV files to scan in round-robin during auto-scan.
+  # Useful when the topology has multiple switches writing separate CSVs.
+  # Leave empty to scan only data_path.
+  # Example (live Mininet mode):
+  #   extra_data_paths:
+  #     - data/live_client2.csv
+  #     - data/live_client3.csv
+  extra_data_paths: []
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 2. ALERT QUEUE
+# Controls in-memory alert storage and retention.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+alert_queue:
+
+  # Maximum number of alerts held in memory at once.
+  # When full, the oldest RESOLVED alert is evicted first.
+  # If all are pending, the oldest pending alert is evicted (with a warning).
+  # (env: ALERT_QUEUE_MAX_SIZE)
+  max_size: 500
+
+  # After an alert is resolved (approved / monitored / ignored), how many
+  # seconds to keep it visible in the "Resolved" tab before it is eligible
+  # for eviction.  0 = evict immediately when queue is full.
+  # (env: RESOLVED_RETENTION_SECONDS)
+  resolved_retention_seconds: 3600   # 1 hour
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 3. AUTO-SCAN
+# Controls the background thread that re-runs detection periodically.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+auto_scan:
+
+  # Enable the background scanner thread.
+  # false → only manual scans via POST /api/scan or the ⚡ button.
+  # (env: AUTO_SCAN_ENABLED)
+  enabled: true
+
+  # How often (seconds) to re-run detect() on the live data file.
+  # 30 s is a good default for a Mininet demo (ryu_collector polls
+  # every 5 s, so 30 s gives ~6 new rows per batch).
+  # Lower for faster demo feedback; raise to reduce CPU load.
+  # (env: AUTO_SCAN_INTERVAL)
+  interval_seconds: 30
+
+  # Run one scan immediately on server startup (before the first timer fires).
+  # (env: SCAN_ON_STARTUP)
+  scan_on_startup: true
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 4. DASHBOARD SERVER
+# Flask web server settings.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+dashboard:
+
+  # Host to bind.  0.0.0.0 makes the dashboard reachable from the host
+  # machine's browser when running inside a Mininet VM.
+  # Use 127.0.0.1 to restrict to localhost only.
+  # (env: DASHBOARD_HOST)
+  host: 0.0.0.0
+
+  # Port for the Flask dashboard.
+  # Must NOT be 8080 — that port belongs to Ryu's REST API.
+  # (env: DASHBOARD_PORT)
+  port: 5000
+
+  # Enable Flask debug mode.  Do NOT use in a live Mininet demo — it
+  # starts a reloader process that breaks the background scanner thread.
+  # (env: DASHBOARD_DEBUG)
+  debug: false
+
+  # CORS allowed origins.  '*' permits the dashboard HTML to be opened
+  # as a local file (file:// URL) and still call the API.
+  # Restrict to 'http://localhost:5000' in production-like environments.
+  cors_origins: "*"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 5. SEVERITY THRESHOLDS
+# Controls how anomaly rank is mapped to HIGH / MEDIUM / LOW severity.
+# Rank is expressed as a percentile: rank 1 of 100 = percentile 0.01.
+# Flows in the top X% of most-anomalous are given that severity level.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+severity:
+
+  # Flows in the top 5% most anomalous → HIGH
+  # Corresponds to SEVERITY_HIGH in hitl.py
+  high_percentile: 0.05
+
+  # Flows in the top 15% most anomalous → MEDIUM (but not HIGH)
+  # Corresponds to SEVERITY_MEDIUM in hitl.py
+  medium_percentile: 0.15
+
+  # Everything else → LOW
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 6. SDN MITIGATION
+# Controls how mitigator.py installs and removes flow rules.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+mitigation:
+
+  # ── Path A: Ryu REST API (preferred) ─────────────────────────────────────
+  # mitigator.py calls POST /stats/flowentry/add on the Ryu ofctl_rest app.
+  # This is the correct way to interact with an SDN controller.
+
+  # IP address of the Ryu controller's REST API.
+  # In Mininet this is always 127.0.0.1 (controller runs on the host).
+  # (env: RYU_REST_HOST)
+  ryu_rest_host: 127.0.0.1
+
+  # Port for Ryu's REST API (ryu_collector.py uses 8080).
+  # (env: RYU_REST_PORT)
+  ryu_rest_port: 8080
+
+  # ── Path B: Raw OpenFlow socket (fallback) ────────────────────────────────
+  # Used automatically when the Ryu REST API is unreachable.
+  # Connects to the OVS passive listener configured by topology.py:
+  #   ovs-vsctl set-controller s1 ... ptcp:6654
+
+  # IP of the OVS passive listener.  Always 127.0.0.1 in the lab.
+  # (env: OVS_SWITCH_IP)
+  ovs_switch_ip: 127.0.0.1
+
+  # Port of the OVS passive listener (ptcp:6654 in topology.py).
+  # (env: OVS_SWITCH_PORT)
+  ovs_switch_port: 6654
+
+  # ── Flow rule parameters ──────────────────────────────────────────────────
+
+  # OpenFlow cookie for all Tool 4 rules (hex string for readability).
+  # Visible in: ovs-ofctl dump-flows s1 -O OpenFlow13
+  # Tool 3 rogue rule uses 0xDEADBEEFCAFE0001 — different on purpose.
+  # (env: HITL_COOKIE)
+  cookie: "0xFEEDFACECAFE0004"
+
+  # Priority for HITL DROP rules.
+  # Must be:
+  #   > 1      (above normal forwarding rules installed by Ryu)
+  #   < 40000  (below Tool 3's rogue injection, so demos don't collide)
+  # (env: HITL_PRIORITY)
+  priority: 30000
+
+  # Idle timeout (seconds) for BLOCK rules.
+  # Rule is removed by OVS if no matching packets arrive within this window.
+  # 300 s (5 min) is long enough to demonstrate effect in a demo; short
+  # enough that rules self-clean after the demo without manual removal.
+  # (env: HITL_IDLE_TIMEOUT)
+  idle_timeout_seconds: 300
+
+  # Hard timeout (seconds) for BLOCK rules.
+  # 0 = no hard timeout (rule persists until idle timeout or manual removal).
+  # (env: HITL_HARD_TIMEOUT)
+  hard_timeout_seconds: 0
+
+  # Idle timeout for THROTTLE rules (shorter than BLOCK).
+  # Throttle is a temporary measure that self-cleans if traffic stops.
+  # (env: HITL_THROTTLE_TIMEOUT)
+  throttle_idle_timeout_seconds: 60
+
+  # Whether to try the Ryu REST API first (true) or go directly to the
+  # raw OpenFlow socket (false).  Leave true for normal operation.
+  # (env: PREFER_REST)
+  prefer_rest: true
+
+  # Path to the mitigation audit log.
+  # Every BLOCK / THROTTLE / UNBLOCK action is appended here as a
+  # timestamped line — the operator's audit trail of every SDN change.
+  # (env: MITIGATION_LOG_PATH)
+  log_path: results/mitigator.log
+
+  # Default switch DPID to use when an alert's dpid field is 0 or unknown.
+  # In the three-switch topology: s1=1, s2=2, s3=3.
+  default_dpid: 1
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 7. EXPLAINER
+# Controls how src/explainer.py generates human-readable alert text.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+explainer:
+
+  # Maximum number of top-deviating features to include in the explanation.
+  # 3 is the default — enough for a clear explanation without overwhelming
+  # the operator.  Range: 1–6.
+  max_top_features: 3
+
+  # Z-score magnitude thresholds for the intensity words used in explanations
+  # ("extremely", "significantly", "notably", "slightly").
+  # Adjust if your traffic baselines produce unusually high or low Z-scores.
+  z_intensity:
+    extremely:    4.0   # |Z| ≥ 4.0
+    significantly: 2.5  # |Z| ≥ 2.5
+    notably:      1.5   # |Z| ≥ 1.5
+    # |Z| < 1.5 → "slightly"
+
+  # Multiplier threshold for adding "X.X× baseline" to feature descriptions.
+  # Only shown when flow_value / baseline_mean ≥ this value.
+  multiplier_display_threshold: 2.0
+
+  # Attack pattern detection sensitivity.
+  # These Z-score cutoffs are used by the four pattern matchers
+  # in explainer.py (_match_ddos, _match_port_scan, etc.).
+  # Raise to reduce false pattern matches; lower to catch subtler attacks.
+  pattern_thresholds:
+    ddos_bytes_z:      2.0   # bytes or packets Z-score to suspect DDoS
+    ddos_duration_max: 1.0   # max duration (s) to suspect DDoS (short-lived)
+    scan_bytes_max:    200   # max bytes to suspect port scan payload
+    scan_packets_max:  2     # max packets to suspect single-packet probe
+    scan_duration_max: 0.1   # max duration (s) for scan probes
+    fte_bytes_max:     600   # max bytes for flow table exhaustion flows
+    fte_duration_max:  0.15  # max duration (s) for FTE flows
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 8. NOTIFICATIONS
+# Controls how the dashboard alerts the operator to new HIGH-severity events.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+notifications:
+
+  # Enable browser Notification API for new HIGH alerts.
+  # The browser will prompt the user for permission on first use.
+  browser_notifications: true
+
+  # Flash the page title when new alerts arrive.
+  title_flash: true
+
+  # Duration (ms) the page title flashes before resetting.
+  title_flash_duration_ms: 8000
+
+  # Interval (ms) between title flips during flash.
+  title_flash_interval_ms: 800
+
+  # Enable Web Audio API ping on new HIGH-severity alerts.
+  # Off by default — operator can toggle with the 🔔 button in the header.
+  audio_ping: false
+
+  # Frequency (Hz) of the Web Audio ping tone.
+  audio_ping_hz: 440
+
+  # Duration (ms) of the ping tone.
+  audio_ping_duration_ms: 400
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 9. LOGGING
+# Controls Python logging for the dashboard server and HITL components.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+logging:
+
+  # Log level for the dashboard server and all src/ modules.
+  # Options: DEBUG, INFO, WARNING, ERROR, CRITICAL
+  level: INFO
+
+  # Log format string.
+  format: "[%(asctime)s] %(levelname)s %(name)s — %(message)s"
+
+  # Date format for log timestamps.
+  datefmt: "%H:%M:%S"
+
+  # Path to write server log file.  null = log to stdout only.
+  file: null
+
+  # Path to write the HITL audit log (alert decisions + scan events).
+  # Separate from the mitigation log (which only records SDN rule changes).
+  hitl_audit_log: results/hitl_audit.log
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 10. DEMO SCENARIOS
+# Pre-configured attack scenarios for the video demonstration.
+# Run with: python3 cli.py demo-hitl --scenario <name>
+# Each scenario specifies which data file to use and which attacks to simulate.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+demo_scenarios:
+
+  # Scenario A: DDoS from h4 (s2 / live_client2.csv)
+  ddos:
+    description: "DDoS SYN flood from h4 targeting h1:80"
+    data_path:   data/live_client2.csv
+    model_path:  models/global.pkl
+    attack_host: h4
+    attack_type: ddos
+    expected_severity: high
+    mitigation_dpid: 2
+
+  # Scenario B: Port scan from h6 (s3 / live_client3.csv)
+  port_scan:
+    description: "nmap port scan from h6 across 10.0.0.0/8"
+    data_path:   data/live_client3.csv
+    model_path:  models/global.pkl
+    attack_host: h6
+    attack_type: scan
+    expected_severity: medium
+    mitigation_dpid: 3
+
+  # Scenario C: FlowMod injection (Tool 3) — show in verify modal
+  flowmod_inject:
+    description: "Tool 3 rogue FlowMod from h7 dropping HTTP on s1"
+    data_path:   data/live_client1.csv
+    model_path:  models/global.pkl
+    attack_host: h7
+    attack_type: control_plane_probe
+    expected_severity: high
+    mitigation_dpid: 1
+    # After detection, run verify to show both cookies side by side:
+    #   Tool 4 rule: cookie=0xfeedfacecafe0004  priority=30000
+    #   Tool 3 rule: cookie=0xdeadbeefcafe0001  priority=40000
+    verify_after: true
+
+  # Scenario D: Flow table exhaustion (FTE) from randomised source IPs
+  fte:
+    description: "Flow table exhaustion — many random short-lived flows"
+    data_path:   data/new_flows.csv
+    model_path:  models/global.pkl
+    attack_host: mixed
+    attack_type: flow_table_exhaustion
+    expected_severity: medium
+    mitigation_dpid: 1
+
+  # Scenario E: Clean baseline — no attacks, dashboard should stay quiet
+  baseline:
+    description: "Benign traffic baseline — no alerts expected"
+    data_path:   data/client1.csv
+    model_path:  models/global.pkl
+    attack_host: none
+    attack_type: none
+    expected_severity: null
+    mitigation_dpid: 1
