@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tool 4 — HITL Security Dashboard</title>
+<style>
+  /* ── Reset & base ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:       #0f1117;
+    --surface:  #1a1d27;
+    --surface2: #222536;
+    --border:   #2e3148;
+    --text:     #e2e4f0;
+    --muted:    #7b7f9e;
+    --high:     #ef4444;
+    --high-bg:  #2d1414;
+    --med:      #f59e0b;
+    --med-bg:   #2d2008;
+    --low:      #3b82f6;
+    --low-bg:   #0d1f3c;
+    --green:    #22c55e;
+    --green-bg: #0d2a1a;
+    --purple:   #a78bfa;
+    --radius:   8px;
+    --font:     'Segoe UI', system-ui, sans-serif;
+  }
+  body { background: var(--bg); color: var(--text); font-family: var(--font);
+         font-size: 14px; line-height: 1.6; min-height: 100vh; }
+
+  /* ── Layout ── */
+  .shell { display: grid; grid-template-rows: 56px 1fr; height: 100vh; overflow: hidden; }
+  .main  { display: grid; grid-template-columns: 340px 1fr; overflow: hidden; }
+
+  /* ── Top bar ── */
+  header {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 20px; gap: 16px;
+  }
+  .logo { font-size: 15px; font-weight: 700; color: var(--text); letter-spacing: .02em; }
+  .logo span { color: var(--purple); }
+  .status-bar { display: flex; align-items: center; gap: 18px; }
+  .stat-pill {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 20px; padding: 3px 12px; font-size: 12px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .stat-pill .dot { width: 7px; height: 7px; border-radius: 50%; }
+  .dot-green  { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .dot-red    { background: var(--high);  box-shadow: 0 0 6px var(--high); }
+  .dot-amber  { background: var(--med);   box-shadow: 0 0 6px var(--med); }
+  #server-status-dot { transition: background .4s, box-shadow .4s; }
+  .header-actions { display: flex; gap: 8px; }
+  .btn {
+    border: 1px solid var(--border); border-radius: var(--radius);
+    background: var(--surface2); color: var(--text);
+    padding: 5px 13px; font-size: 12px; cursor: pointer;
+    transition: background .15s, border-color .15s;
+  }
+  .btn:hover { background: var(--border); border-color: var(--muted); }
+  .btn-primary { background: var(--purple); border-color: var(--purple); color: #fff; }
+  .btn-primary:hover { background: #8b5cf6; border-color: #8b5cf6; }
+
+  /* ── Alert list panel ── */
+  .panel-left {
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; overflow: hidden;
+    background: var(--surface);
+  }
+  .panel-header {
+    padding: 12px 16px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .panel-title { font-size: 12px; font-weight: 600; color: var(--muted);
+                  text-transform: uppercase; letter-spacing: .08em; }
+  .badge {
+    font-size: 11px; font-weight: 700; border-radius: 10px;
+    padding: 1px 8px; min-width: 22px; text-align: center;
+  }
+  .badge-high   { background: var(--high-bg);  color: var(--high); }
+  .badge-med    { background: var(--med-bg);   color: var(--med);  }
+  .badge-low    { background: var(--low-bg);   color: var(--low);  }
+  .badge-neutral{ background: var(--surface2); color: var(--muted); }
+
+  .filter-tabs {
+    display: flex; gap: 0; border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .tab {
+    flex: 1; padding: 8px 0; font-size: 12px; text-align: center;
+    cursor: pointer; border-bottom: 2px solid transparent;
+    color: var(--muted); background: none; border-top: none;
+    border-left: none; border-right: none; transition: color .15s;
+  }
+  .tab.active { color: var(--purple); border-bottom-color: var(--purple); }
+  .tab:hover:not(.active) { color: var(--text); }
+
+  .alert-list { overflow-y: auto; flex: 1; }
+  .alert-list::-webkit-scrollbar { width: 4px; }
+  .alert-list::-webkit-scrollbar-track { background: transparent; }
+  .alert-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  .alert-row {
+    padding: 12px 16px; border-bottom: 1px solid var(--border);
+    cursor: pointer; transition: background .1s;
+    display: grid; grid-template-columns: 8px 1fr auto; gap: 10px; align-items: start;
+  }
+  .alert-row:hover  { background: var(--surface2); }
+  .alert-row.active { background: var(--surface2); border-left: 3px solid var(--purple); }
+  .sev-bar { width: 4px; border-radius: 2px; height: 100%; min-height: 40px; }
+  .sev-high { background: var(--high); }
+  .sev-med  { background: var(--med); }
+  .sev-low  { background: var(--low); }
+  .alert-row-body { min-width: 0; }
+  .alert-row-top { display: flex; align-items: baseline; gap: 6px; margin-bottom: 2px; }
+  .alert-id { font-size: 11px; color: var(--muted); font-family: monospace; }
+  .alert-pattern { font-size: 13px; font-weight: 500;
+                    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .alert-sub { font-size: 11px; color: var(--muted);
+                white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .alert-row-right { text-align: right; flex-shrink: 0; }
+  .conf-badge {
+    font-size: 11px; font-weight: 700; border-radius: 10px; padding: 1px 7px;
+    display: inline-block;
+  }
+  .decision-pill {
+    font-size: 10px; border-radius: 10px; padding: 1px 6px; margin-top: 3px;
+    display: inline-block; font-weight: 600; letter-spacing: .03em;
+  }
+  .pill-pending  { background: #2a2030; color: var(--purple); }
+  .pill-approved { background: var(--high-bg); color: var(--high); }
+  .pill-monitor  { background: var(--med-bg);  color: var(--med);  }
+  .pill-ignored  { background: var(--surface2); color: var(--muted); }
+
+  .empty-state {
+    padding: 40px 20px; text-align: center; color: var(--muted); font-size: 13px;
+  }
+
+  /* ── Detail panel ── */
+  .panel-right {
+    display: flex; flex-direction: column; overflow: hidden;
+    background: var(--bg);
+  }
+  .detail-placeholder {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 12px;
+    color: var(--muted);
+  }
+  .detail-placeholder svg { opacity: .25; }
+
+  .detail-view { display: none; flex-direction: column; height: 100%; overflow: hidden; }
+  .detail-view.visible { display: flex; }
+
+  .detail-header {
+    padding: 16px 20px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 12px; flex-shrink: 0;
+    background: var(--surface);
+  }
+  .sev-chip {
+    font-size: 11px; font-weight: 700; border-radius: 4px; padding: 3px 9px;
+    text-transform: uppercase; letter-spacing: .06em;
+  }
+  .chip-high { background: var(--high-bg); color: var(--high); border: 1px solid var(--high); }
+  .chip-med  { background: var(--med-bg);  color: var(--med);  border: 1px solid var(--med);  }
+  .chip-low  { background: var(--low-bg);  color: var(--low);  border: 1px solid var(--low);  }
+  .detail-title { flex: 1; font-size: 15px; font-weight: 600; }
+  .conf-ring {
+    width: 48px; height: 48px; border-radius: 50%;
+    border: 3px solid; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .conf-ring .conf-num { font-size: 13px; font-weight: 700; line-height: 1; }
+  .conf-ring .conf-label { font-size: 8px; color: var(--muted); line-height: 1; }
+
+  .detail-body { flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; }
+  .detail-body::-webkit-scrollbar { width: 4px; }
+  .detail-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  /* ── Cards ── */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+  .card-head {
+    padding: 10px 14px; border-bottom: 1px solid var(--border);
+    font-size: 11px; font-weight: 600; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .07em;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .card-body { padding: 12px 14px; }
+
+  /* Flow info grid */
+  .flow-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 20px; }
+  .flow-field label { font-size: 10px; color: var(--muted); text-transform: uppercase;
+                       letter-spacing: .06em; display: block; margin-bottom: 2px; }
+  .flow-field .val  { font-family: monospace; font-size: 13px; color: var(--text); }
+  .flow-field .val.mono-ip { color: var(--purple); }
+  .flow-arrow { color: var(--muted); padding: 0 4px; }
+
+  /* Feature deviations */
+  .dev-row { margin-bottom: 10px; }
+  .dev-row:last-child { margin-bottom: 0; }
+  .dev-label { font-size: 12px; color: var(--text); margin-bottom: 4px;
+                display: flex; justify-content: space-between; }
+  .dev-label .z-tag { font-size: 11px; color: var(--muted); font-family: monospace; }
+  .dev-bar-track { background: var(--surface2); border-radius: 4px; height: 6px; overflow: hidden; }
+  .dev-bar-fill { height: 100%; border-radius: 4px; transition: width .6s ease; }
+  .dev-vals { font-size: 11px; color: var(--muted); margin-top: 3px;
+               display: flex; justify-content: space-between; }
+
+  /* Explanation */
+  .explanation-text {
+    font-size: 13px; white-space: pre-wrap; line-height: 1.7;
+    color: var(--text); font-family: var(--font);
+  }
+
+  /* Recommendation */
+  .rec-options { display: flex; flex-direction: column; gap: 8px; }
+  .rec-option {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 10px 12px;
+    font-size: 13px; line-height: 1.5; color: var(--text);
+    white-space: pre-wrap;
+  }
+  .rec-option.opt-block   { border-left: 3px solid var(--high); }
+  .rec-option.opt-monitor { border-left: 3px solid var(--med); }
+  .rec-option.opt-ignore  { border-left: 3px solid var(--muted); }
+
+  /* ── Decision bar ── */
+  .decision-bar {
+    padding: 14px 20px; border-top: 1px solid var(--border);
+    background: var(--surface);
+    display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+  }
+  .decision-bar .dec-label { font-size: 12px; color: var(--muted); flex: 1; }
+  .decision-bar.decided .dec-label { color: var(--text); }
+
+  .btn-approve {
+    background: var(--high-bg); border: 1px solid var(--high);
+    color: var(--high); border-radius: var(--radius); padding: 7px 16px;
+    font-size: 13px; font-weight: 600; cursor: pointer; transition: background .15s;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .btn-approve:hover:not(:disabled) { background: #3d1414; }
+  .btn-monitor {
+    background: var(--med-bg); border: 1px solid var(--med);
+    color: var(--med); border-radius: var(--radius); padding: 7px 16px;
+    font-size: 13px; font-weight: 600; cursor: pointer; transition: background .15s;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .btn-monitor:hover:not(:disabled) { background: #3d2a00; }
+  .btn-ignore {
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--muted); border-radius: var(--radius); padding: 7px 16px;
+    font-size: 13px; cursor: pointer; transition: background .15s;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .btn-ignore:hover:not(:disabled) { background: var(--border); }
+  .btn-approve:disabled,
+  .btn-monitor:disabled,
+  .btn-ignore:disabled { opacity: .4; cursor: not-allowed; }
+
+  /* ── Mitigation result toast ── */
+  .mit-toast {
+    background: var(--green-bg); border: 1px solid var(--green);
+    border-radius: var(--radius); padding: 8px 12px;
+    font-size: 12px; color: var(--green); display: none;
+    align-items: center; gap: 8px;
+  }
+  .mit-toast.visible { display: flex; }
+  .mit-toast.failed  { background: var(--high-bg); border-color: var(--high); color: var(--high); }
+
+  /* ── Stats footer ── */
+  .stats-row {
+    border-top: 1px solid var(--border); padding: 8px 16px;
+    display: flex; gap: 16px; flex-shrink: 0; background: var(--surface);
+    font-size: 11px; color: var(--muted);
+  }
+  .stats-row span b { color: var(--text); }
+
+  /* ── Notification badge on tab ── */
+  .tab-count {
+    background: var(--high); color: #fff; border-radius: 10px;
+    padding: 1px 6px; font-size: 10px; font-weight: 700;
+    margin-left: 4px; display: none;
+  }
+  .tab-count.visible { display: inline; }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- ── Top bar ── -->
+  <header>
+    <div class="logo">
+      <span>SDN-FL</span> Tool 4 &nbsp;·&nbsp; HITL Security Dashboard
+    </div>
+    <div class="status-bar">
+      <div class="stat-pill">
+        <div class="dot dot-green" id="server-status-dot"></div>
+        <span id="server-status-text">connecting…</span>
+      </div>
+      <div class="stat-pill">
+        ⏱ uptime <b id="uptime-val">—</b>
+      </div>
+      <div class="stat-pill">
+        🔍 last scan <b id="last-scan-val">—</b>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="btn" onclick="triggerScan()" id="scan-btn">⚡ Scan now</button>
+      <button class="btn" onclick="verifyRules()">🔎 Verify rules</button>
+      <button class="btn btn-primary" onclick="openMitLog()">📋 Mitigation log</button>
+    </div>
+  </header>
+
+  <!-- ── Main panes ── -->
+  <div class="main">
+
+    <!-- Left: alert list -->
+    <div class="panel-left">
+      <div class="panel-header">
+        <span class="panel-title">Alerts</span>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <span class="badge badge-high" id="count-high">0</span>
+          <span class="badge badge-med"  id="count-med">0</span>
+          <span class="badge badge-low"  id="count-low">0</span>
+        </div>
+      </div>
+
+      <div class="filter-tabs">
+        <button class="tab active" onclick="setTab('all',this)">
+          All <span class="tab-count" id="tab-all-count"></span>
+        </button>
+        <button class="tab" onclick="setTab('pending',this)">
+          Pending <span class="tab-count" id="tab-pending-count"></span>
+        </button>
+        <button class="tab" onclick="setTab('resolved',this)">Resolved</button>
+      </div>
+
+      <div class="alert-list" id="alert-list">
+        <div class="empty-state">Loading alerts…</div>
+      </div>
+
+      <div class="stats-row">
+        <span>Total <b id="s-total">0</b></span>
+        <span>Pending <b id="s-pending">0</b></span>
+        <span>Approved <b id="s-approved">0</b></span>
+        <span>Monitor <b id="s-monitor">0</b></span>
+        <span>Ignored <b id="s-ignored">0</b></span>
+      </div>
+    </div>
+
+    <!-- Right: detail panel -->
+    <div class="panel-right">
+
+      <!-- Placeholder when nothing selected -->
+      <div class="detail-placeholder" id="detail-placeholder">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="1" stroke-linecap="round">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <span>Select an alert to review</span>
+      </div>
+
+      <!-- Detail view (shown when alert selected) -->
+      <div class="detail-view" id="detail-view">
+
+        <!-- Header row -->
+        <div class="detail-header">
+          <span class="sev-chip" id="d-sev-chip">HIGH</span>
+          <div class="detail-title" id="d-pattern">—</div>
+          <div class="conf-ring" id="d-conf-ring">
+            <span class="conf-num" id="d-conf-num">—</span>
+            <span class="conf-label">CONF</span>
+          </div>
+        </div>
+
+        <!-- Scrollable body -->
+        <div class="detail-body">
+
+          <!-- Flow info -->
+          <div class="card">
+            <div class="card-head">🌐 Flow details</div>
+            <div class="card-body">
+              <div class="flow-grid">
+                <div class="flow-field">
+                  <label>Source</label>
+                  <span class="val mono-ip" id="d-src">—</span>
+                </div>
+                <div class="flow-field">
+                  <label>Destination</label>
+                  <span class="val mono-ip" id="d-dst">—</span>
+                </div>
+                <div class="flow-field">
+                  <label>Protocol</label>
+                  <span class="val" id="d-proto">—</span>
+                </div>
+                <div class="flow-field">
+                  <label>Switch (DPID)</label>
+                  <span class="val" id="d-dpid">—</span>
+                </div>
+                <div class="flow-field">
+                  <label>Bytes transferred</label>
+                  <span class="val" id="d-bytes">—</span>
+                </div>
+                <div class="flow-field">
+                  <label>Packets</label>
+                  <span class="val" id="d-packets">—</span>
+                </div>
+                <div class="flow-field">
+                  <label>Duration</label>
+                  <span class="val" id="d-duration">—</span>
+                </div>
+                <div class="flow-field">
+                  <label>Anomaly score</label>
+                  <span class="val" id="d-score">—</span>
+                </div>
+                <div class="flow-field">
+                  <label>Rank in batch</label>
+                  <span class="val" id="d-rank">—</span>
+                </div>
+                <div class="flow-field">
+                  <label>Detected at</label>
+                  <span class="val" id="d-time">—</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Feature deviations -->
+          <div class="card" id="d-devs-card">
+            <div class="card-head">📊 Top contributing indicators</div>
+            <div class="card-body" id="d-devs-body">—</div>
+          </div>
+
+          <!-- Explanation -->
+          <div class="card">
+            <div class="card-head">🔍 Why this was flagged</div>
+            <div class="card-body">
+              <pre class="explanation-text" id="d-explanation">—</pre>
+            </div>
+          </div>
+
+          <!-- Recommendation -->
+          <div class="card">
+            <div class="card-head">💡 Operator guidance</div>
+            <div class="card-body">
+              <div class="rec-options" id="d-rec-options"></div>
+            </div>
+          </div>
+
+          <!-- Mitigation result (shown after decision) -->
+          <div class="mit-toast" id="mit-toast">
+            <span id="mit-toast-text">—</span>
+          </div>
+
+        </div><!-- /detail-body -->
+
+        <!-- Decision action bar -->
+        <div class="decision-bar" id="decision-bar">
+          <span class="dec-label" id="dec-label">Choose an action:</span>
+          <button class="btn-approve" id="btn-approve" onclick="decide('approved')">
+            ⛔ Block
+          </button>
+          <button class="btn-monitor" id="btn-monitor" onclick="decide('monitor')">
+            👁 Monitor
+          </button>
+          <button class="btn-ignore"  id="btn-ignore"  onclick="decide('ignored')">
+            ✕ Ignore
+          </button>
+        </div>
+
+      </div><!-- /detail-view -->
+    </div><!-- /panel-right -->
+
+  </div><!-- /main -->
+</div><!-- /shell -->
+
+<!-- ── Verify rules modal (inline, simple) ── -->
+<div id="verify-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);
+  z-index:100;align-items:center;justify-content:center;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;
+    padding:20px;width:660px;max-height:80vh;display:flex;flex-direction:column;gap:12px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-weight:600;font-size:14px;">Flow rules on s1 (DPID 1)</span>
+      <button class="btn" onclick="closeOverlay('verify-overlay')">✕ Close</button>
+    </div>
+    <pre id="verify-output"
+      style="flex:1;overflow:auto;font-size:12px;font-family:monospace;
+             background:var(--bg);border:1px solid var(--border);border-radius:6px;
+             padding:12px;white-space:pre-wrap;color:var(--text);">Loading…</pre>
+    <p style="font-size:11px;color:var(--muted);">
+      Tool 4 rules: <code style="color:var(--purple);">cookie=0xfeedfacecafe0004</code> &nbsp;|&nbsp;
+      Tool 3 rogue: <code style="color:var(--high);">cookie=0xdeadbeefcafe0001</code>
+    </p>
+  </div>
+</div>
+
+<!-- ── Mitigation log modal ── -->
+<div id="log-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);
+  z-index:100;align-items:center;justify-content:center;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;
+    padding:20px;width:720px;max-height:80vh;display:flex;flex-direction:column;gap:12px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-weight:600;font-size:14px;">📋 Mitigation audit log</span>
+      <button class="btn" onclick="closeOverlay('log-overlay')">✕ Close</button>
+    </div>
+    <pre id="log-output"
+      style="flex:1;overflow:auto;font-size:12px;font-family:monospace;
+             background:var(--bg);border:1px solid var(--border);border-radius:6px;
+             padding:12px;white-space:pre-wrap;color:var(--text);">Loading…</pre>
+  </div>
+</div>
+
+<script>
+// ── Config ──────────────────────────────────────────────────────────────────
+const API   = '';          // same origin; change to 'http://localhost:5000' if needed
+const POLL  = 5000;        // ms between alert list refreshes
+
+// ── State ───────────────────────────────────────────────────────────────────
+let allAlerts       = [];
+let currentAlertId  = null;
+let currentTab      = 'all';
+let pollTimer       = null;
+
+// ── Utility ─────────────────────────────────────────────────────────────────
+const $  = id => document.getElementById(id);
+const esc = s  => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+function fmtBytes(n) {
+  if (n >= 1e6) return (n/1e6).toFixed(1)+'M';
+  if (n >= 1e3) return (n/1e3).toFixed(1)+'K';
+  return String(n);
+}
+function fmtUptime(s) {
+  if (s < 60)   return `${Math.round(s)}s`;
+  if (s < 3600) return `${Math.floor(s/60)}m ${Math.round(s%60)}s`;
+  return `${Math.floor(s/3600)}h ${Math.floor((s%3600)/60)}m`;
+}
+function fmtAge(ts) {
+  const d = (Date.now()/1000) - ts;
+  if (d < 60)   return `${Math.round(d)}s ago`;
+  if (d < 3600) return `${Math.floor(d/60)}m ago`;
+  return `${Math.floor(d/3600)}h ago`;
+}
+
+// ── Severity helpers ─────────────────────────────────────────────────────────
+function sevColor(sev) {
+  return { high:'var(--high)', medium:'var(--med)', low:'var(--low)' }[sev] || 'var(--muted)';
+}
+function sevClass(sev) {
+  return { high:'sev-high', medium:'sev-med', low:'sev-low' }[sev] || '';
+}
+function chipClass(sev) {
+  return { high:'chip-high', medium:'chip-med', low:'chip-low' }[sev] || '';
+}
+function confColor(pct) {
+  if (pct >= 80) return 'var(--high)';
+  if (pct >= 55) return 'var(--med)';
+  return 'var(--low)';
+}
+
+// Extract the "Detection:" line from an explanation string
+function extractPattern(explanation) {
+  const m = explanation.match(/^Detection:\s*(.+)$/m);
+  return m ? m[1] : 'Anomaly detected';
+}
+
+// ── Poll: health + alert list ────────────────────────────────────────────────
+async function pollAll() {
+  await Promise.all([fetchHealth(), fetchAlerts()]);
+}
+
+async function fetchHealth() {
+  try {
+    const r = await fetch(`${API}/api/health`);
+    if (!r.ok) throw new Error();
+    const d = await r.json();
+
+    $('server-status-dot').className   = 'dot dot-green';
+    $('server-status-text').textContent = 'connected';
+    $('uptime-val').textContent          = fmtUptime(d.uptime_s);
+
+    const ls = d.last_scan
+      ? fmtAge(d.last_scan)
+      : 'never';
+    $('last-scan-val').textContent = ls;
+
+  } catch {
+    $('server-status-dot').className    = 'dot dot-red';
+    $('server-status-text').textContent  = 'offline';
+  }
+}
+
+async function fetchAlerts() {
+  try {
+    const r = await fetch(`${API}/api/alerts`);
+    if (!r.ok) throw new Error();
+    const d = await r.json();
+    allAlerts = d.alerts || [];
+    renderAlertList();
+    updateStats();
+  } catch {
+    // keep existing list visible on transient failure
+  }
+}
+
+// ── Alert list rendering ─────────────────────────────────────────────────────
+function setTab(tab, el) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderAlertList();
+}
+
+function filteredAlerts() {
+  if (currentTab === 'pending')  return allAlerts.filter(a => a.decision === 'pending');
+  if (currentTab === 'resolved') return allAlerts.filter(a => a.decision !== 'pending');
+  return allAlerts;
+}
+
+function renderAlertList() {
+  const list = filteredAlerts();
+  const el   = $('alert-list');
+
+  // Update tab counts
+  const pendingCount = allAlerts.filter(a => a.decision === 'pending').length;
+  const tabPendingBadge = $('tab-pending-count');
+  tabPendingBadge.textContent = pendingCount;
+  tabPendingBadge.className   = 'tab-count' + (pendingCount > 0 ? ' visible' : '');
+  $('tab-all-count').textContent = allAlerts.length;
+  $('tab-all-count').className   = 'tab-count' + (allAlerts.length > 0 ? ' visible' : '');
+
+  if (list.length === 0) {
+    el.innerHTML = `<div class="empty-state">${
+      currentTab === 'pending' ? 'No pending alerts — network looks clean.' :
+      currentTab === 'resolved' ? 'No resolved alerts yet.' :
+      'No alerts yet. Click ⚡ Scan now to run detection.'
+    }</div>`;
+    return;
+  }
+
+  el.innerHTML = list.map(a => {
+    const pattern  = extractPattern(a.explanation || '');
+    const isActive = a.alert_id === currentAlertId ? ' active' : '';
+    const decPill  = `<span class="decision-pill pill-${a.decision}">${a.decision}</span>`;
+    const confC    = confColor(a.confidence_pct);
+
+    return `<div class="alert-row${isActive}" onclick="selectAlert('${a.alert_id}')">
+      <div class="sev-bar ${sevClass(a.severity)}"></div>
+      <div class="alert-row-body">
+        <div class="alert-row-top">
+          <span class="alert-id">#${a.alert_id}</span>
+        </div>
+        <div class="alert-pattern">${esc(pattern)}</div>
+        <div class="alert-sub">${esc(a.src_ip)}:${a.src_port} → ${esc(a.dst_ip)}:${a.dst_port} &nbsp;·&nbsp; ${esc(a.protocol).toUpperCase()}</div>
+      </div>
+      <div class="alert-row-right">
+        <span class="conf-badge" style="color:${confC};background:${confC}18">
+          ${a.confidence_pct.toFixed(0)}%
+        </span>
+        <br>${decPill}
+        <br><span style="font-size:10px;color:var(--muted)">${fmtAge(a.created_at)}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function updateStats() {
+  const t = allAlerts.length;
+  const p = allAlerts.filter(a => a.decision === 'pending').length;
+  const ap= allAlerts.filter(a => a.decision === 'approved').length;
+  const m = allAlerts.filter(a => a.decision === 'monitor').length;
+  const ig= allAlerts.filter(a => a.decision === 'ignored').length;
+
+  const h = allAlerts.filter(a => a.severity === 'high').length;
+  const me= allAlerts.filter(a => a.severity === 'medium').length;
+  const lo= allAlerts.filter(a => a.severity === 'low').length;
+
+  $('s-total').textContent   = t;
+  $('s-pending').textContent = p;
+  $('s-approved').textContent= ap;
+  $('s-monitor').textContent = m;
+  $('s-ignored').textContent = ig;
+  $('count-high').textContent= h;
+  $('count-med').textContent = me;
+  $('count-low').textContent = lo;
+}
+
+// ── Detail panel ─────────────────────────────────────────────────────────────
+async function selectAlert(id) {
+  currentAlertId = id;
+
+  // Highlight in list
+  document.querySelectorAll('.alert-row').forEach(r => r.classList.remove('active'));
+  const row = [...document.querySelectorAll('.alert-row')]
+    .find(r => r.onclick.toString().includes(`'${id}'`));
+  if (row) row.classList.add('active');
+
+  // Fetch latest version of this alert
+  try {
+    const r = await fetch(`${API}/api/alerts/${id}`);
+    if (!r.ok) return;
+    const a = await r.json();
+    renderDetail(a);
+  } catch { /* ignore */ }
+}
+
+function renderDetail(a) {
+  $('detail-placeholder').style.display = 'none';
+  $('detail-view').className = 'detail-view visible';
+
+  // Header
+  const chip = $('d-sev-chip');
+  chip.textContent = a.severity.toUpperCase();
+  chip.className   = `sev-chip ${chipClass(a.severity)}`;
+
+  const pattern = extractPattern(a.explanation || '');
+  $('d-pattern').textContent = pattern;
+
+  const ring = $('d-conf-ring');
+  const c    = confColor(a.confidence_pct);
+  ring.style.borderColor = c;
+  $('d-conf-num').style.color = c;
+  $('d-conf-num').textContent = a.confidence_pct.toFixed(0) + '%';
+
+  // Flow fields
+  $('d-src').textContent      = `${a.src_ip}:${a.src_port}`;
+  $('d-dst').textContent      = `${a.dst_ip}:${a.dst_port}`;
+  $('d-proto').textContent    = (a.protocol || '—').toUpperCase();
+  $('d-dpid').textContent     = a.dpid ? `s${a.dpid} (dpid=${a.dpid})` : '—';
+  $('d-bytes').textContent    = `${fmtBytes(a.bytes)} (${a.bytes.toLocaleString()} B)`;
+  $('d-packets').textContent  = a.packets.toLocaleString();
+  $('d-duration').textContent = `${a.duration.toFixed(4)}s`;
+  $('d-score').textContent    = a.anomaly_score.toFixed(4);
+  $('d-rank').textContent     = `#${a.anomaly_rank} of ${a.batch_size}`;
+  $('d-time').textContent     = a.created_at_str || '—';
+
+  // Feature deviations
+  const devsBody = $('d-devs-body');
+  if (a.top_deviations && a.top_deviations.length > 0) {
+    const maxZ = Math.max(...a.top_deviations.map(d => Math.abs(d.z_score)), 1);
+    devsBody.innerHTML = a.top_deviations.map(d => {
+      const pct   = Math.min(100, (Math.abs(d.z_score) / maxZ) * 100);
+      const color = Math.abs(d.z_score) >= 3 ? 'var(--high)' :
+                    Math.abs(d.z_score) >= 2 ? 'var(--med)'  : 'var(--low)';
+      const mult  = d.multiplier >= 2 ? ` · ${d.multiplier.toFixed(1)}× baseline` : '';
+      return `<div class="dev-row">
+        <div class="dev-label">
+          <span>${esc(d.label)}</span>
+          <span class="z-tag">Z=${d.z_score > 0 ? '+' : ''}${d.z_score.toFixed(2)}${mult}</span>
+        </div>
+        <div class="dev-bar-track">
+          <div class="dev-bar-fill" style="width:${pct}%;background:${color}"></div>
+        </div>
+        <div class="dev-vals">
+          <span>observed: <b style="color:var(--text)">${fmtBytes(d.flow_value)}</b></span>
+          <span>baseline: ${fmtBytes(d.baseline_mean)} ± ${fmtBytes(d.baseline_std)}</span>
+        </div>
+      </div>`;
+    }).join('');
+  } else {
+    devsBody.textContent = 'No feature breakdown available.';
+  }
+
+  // Explanation
+  $('d-explanation').textContent = a.explanation || '—';
+
+  // Recommendation — split on the three options
+  const recEl = $('d-rec-options');
+  const rec   = a.recommendation || '';
+  const lines = rec.split(/\n\n/).filter(Boolean);
+  recEl.innerHTML = lines.map(line => {
+    const cls = line.startsWith('⛔') ? 'opt-block' :
+                line.startsWith('👁') ? 'opt-monitor' : 'opt-ignore';
+    return `<div class="rec-option ${cls}">${esc(line)}</div>`;
+  }).join('');
+
+  // Decision bar
+  const decided = a.decision !== 'pending';
+  const decBar  = $('decision-bar');
+  decBar.className = 'decision-bar' + (decided ? ' decided' : '');
+  $('dec-label').textContent = decided
+    ? `Decision: ${a.decision.toUpperCase()}${a.decided_at_str ? ' at ' + a.decided_at_str : ''}`
+    : 'Choose an action for this alert:';
+
+  $('btn-approve').disabled = decided;
+  $('btn-monitor').disabled = decided;
+  $('btn-ignore').disabled  = decided;
+
+  // Hide mitigation toast on fresh load
+  const toast = $('mit-toast');
+  toast.className = 'mit-toast';
+  toast.style.display = 'none';
+}
+
+// ── Decision submission ───────────────────────────────────────────────────────
+async function decide(decision) {
+  if (!currentAlertId) return;
+
+  $('btn-approve').disabled = true;
+  $('btn-monitor').disabled = true;
+  $('btn-ignore').disabled  = true;
+  $('dec-label').textContent = 'Submitting…';
+
+  try {
+    const r = await fetch(`${API}/api/decide`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ alert_id: currentAlertId, decision }),
+    });
+    const d = await r.json();
+    if (!r.ok) {
+      $('dec-label').textContent = `Error: ${d.error || 'Unknown error'}`;
+      $('btn-approve').disabled = false;
+      $('btn-monitor').disabled = false;
+      $('btn-ignore').disabled  = false;
+      return;
+    }
+
+    // Re-render detail with updated alert
+    if (d.alert) renderDetail(d.alert);
+
+    // Show mitigation toast
+    const toast = $('mit-toast');
+    if (decision === 'approved' && d.mitigation) {
+      const ok = d.mitigation.status === 'success';
+      toast.className = 'mit-toast visible' + (ok ? '' : ' failed');
+      toast.style.display = 'flex';
+      toast.textContent = ok
+        ? `✓ DROP rule installed on s${d.mitigation.dpid} via ${d.mitigation.method} (cookie ${d.mitigation.rule_cookie})`
+        : `✗ Mitigation failed: ${d.mitigation.error}`;
+    } else if (decision === 'monitor') {
+      toast.className = 'mit-toast visible';
+      toast.style.display = 'flex';
+      $('mit-toast-text').textContent = '👁 Alert marked for monitoring — no flow rule installed.';
+    } else if (decision === 'ignored') {
+      toast.className = 'mit-toast visible';
+      toast.style.display = 'flex';
+      $('mit-toast-text').textContent = '✕ Alert dismissed as false positive.';
+    }
+
+    // Refresh list
+    await fetchAlerts();
+
+  } catch (e) {
+    $('dec-label').textContent = 'Network error — try again.';
+    $('btn-approve').disabled = false;
+    $('btn-monitor').disabled = false;
+    $('btn-ignore').disabled  = false;
+  }
+}
+
+// ── Scan trigger ──────────────────────────────────────────────────────────────
+async function triggerScan() {
+  const btn = $('scan-btn');
+  btn.disabled    = true;
+  btn.textContent = '⏳ Scanning…';
+  try {
+    const r = await fetch(`${API}/api/scan`, { method: 'POST' });
+    const d = await r.json();
+    btn.textContent = `⚡ +${d.new_alerts} alerts`;
+    setTimeout(() => { btn.textContent = '⚡ Scan now'; btn.disabled = false; }, 2500);
+    await fetchAlerts();
+  } catch {
+    btn.textContent = '⚡ Scan now';
+    btn.disabled = false;
+  }
+}
+
+// ── Verify rules modal ────────────────────────────────────────────────────────
+async function verifyRules() {
+  const ov = $('verify-overlay');
+  ov.style.display = 'flex';
+  $('verify-output').textContent = 'Running ovs-ofctl dump-flows s1 …';
+  try {
+    const r = await fetch(`${API}/api/mitigation/verify?dpid=1`);
+    const d = await r.json();
+    $('verify-output').textContent = d.rules || '(no output)';
+  } catch {
+    $('verify-output').textContent = 'Could not reach API.';
+  }
+}
+
+// ── Mitigation log modal ──────────────────────────────────────────────────────
+async function openMitLog() {
+  const ov = $('log-overlay');
+  ov.style.display = 'flex';
+  $('log-output').textContent = 'Loading…';
+  try {
+    const r = await fetch(`${API}/api/mitigation/log?lines=100`);
+    const d = await r.json();
+    const lines = d.log || [];
+    $('log-output').textContent = lines.length > 0
+      ? lines.join('\n')
+      : 'No mitigation actions yet.';
+  } catch {
+    $('log-output').textContent = 'Could not reach API.';
+  }
+}
+
+function closeOverlay(id) {
+  $(id).style.display = 'none';
+}
+
+// Close overlays on background click
+document.getElementById('verify-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeOverlay('verify-overlay');
+});
+document.getElementById('log-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeOverlay('log-overlay');
+});
+
+// ── Boot ─────────────────────────────────────────────────────────────────────
+pollAll();
+pollTimer = setInterval(pollAll, POLL);
+</script>
+</body>
+</html>
