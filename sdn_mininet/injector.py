@@ -96,6 +96,12 @@ OFPT_ROLE_REPLY   = 25
 OFPCR_ROLE_EQUAL  = 1  # full access, no mastership
 OFPCR_ROLE_MASTER = 2  # full access, demotes other masters
 
+RED = "\033[91m"
+YELLOW = "\033[93m"
+WHITE = "\033[97m"
+RESET = "\033[0m"
+
+
 # Human-readable names for common OpenFlow message types
 _TYPE_NAMES: dict[int, str] = {
     0: "HELLO",
@@ -535,10 +541,11 @@ def inject_flowmod(
         "FlowMod installed on s1"
     )
     print()
-    print("[*] Verify with:")
-    print("[->] ovs-ofctl dump-flows s1 -O OpenFlow13")
+    print(f"{RED}[!]{YELLOW} -----------> {WHITE}Verify with:{RESET}")
+    print(f"{YELLOW}[->]{RESET} sudo ovs-ofctl dump-flows s1 -O OpenFlow13")
+
     print(
-        f"[->] Look for: cookie=0x{ATTACKER_COOKIE:x}, "
+        f"{YELLOW}[->]{RESET} Look for: cookie=0x{ATTACKER_COOKIE:x}, "
         f"priority={priority}, "
         f"tcp,tp_dst={target_port} actions=drop"
     )
