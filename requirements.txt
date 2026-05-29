@@ -31,3 +31,7 @@ webob>=1.8.7  # required by Ryu REST API
 # Packet capture and crafting (Phase 1 sniffer) 
 # I hardcode this with this version since I use Python 3.8. It is compat.
 scapy==2.5.0
+
+# Tool 4 add on
+flask>=3.0  # Web server for the HITL operator dashboard, i.e., dashboard/app.py
+flask-cors>=4.0  # CORS headers so the dashboard HTML can call the API cross origin
