@@ -1,41 +1,59 @@
-""" cli.py
-CLI for the SDN Federated Learning project.
-
-This CLI has two tools:
-Tool 1 -> Federated anomaly detection for SDN traffic
-Tool 2 -> Byzantine-robust model poisoning defense
-
-The CLI preserves all original Tool 1 commands and extends the project
-with sanitizer functionality for detecting and eliminating malicious client updates.
-
-Available commands:
-* generate-data -> Generate synthetic SDN flow datasets
-Usage: python3 cli.py generate-data --n-normal 5000 --n-attack 500
-* train -> Train local Isolation Forest models
-Usage: python3 cli.py train --data data/client1.csv --client-id client1
-* federate -> Federated aggregation of local models
-Usage: python3 cli.py federate --models "models/client*.pkl" --out models/global.pkl
-* detect -> Detect anomalous SDN flows
-Usage: python3 cli.py detect --model models/client1.pkl --data data/test.csv
-* evaluate -> Evaluate detection performance
-Usage: python3 cli.py evaluate --detections results/detections.csv
-* sanitize -> Run Z-score poisoning sanitizer on client metrics
-Usage: python3 cli.py sanitize --out results/sanitized.csv
-* demo -> Run standalone poisoning attack demo
-Usage: python3 cli.py demo
-* simulate-fl -> Run multi-round federated learning simulation
-Usage: python3 cli.py simulate-fl
-"""
-
 from __future__ import annotations
+
+#!/usr/bin/env python3
+"""
+cli.py — SDN Federated Anomaly Detector
+Command-line interface for all four tools.
+
+Tool 1 → Federated anomaly detection for SDN traffic
+Tool 2 → Byzantine-robust model poisoning defense
+Tool 3 → OpenFlow FlowMod injection (attack demo — see sdn_mininet/injector.py)
+Tool 4 → Human-in-the-Loop security dashboard
+
+All original Tool 1 and Tool 2 commands are preserved unchanged.
+Tool 4 adds three new commands: dashboard, hitl, demo-hitl.
+
+Available commands
+──────────────────
+Tool 1 / 2 (existing):
+  generate-data  Generate synthetic SDN flow datasets
+  train          Train a local Isolation Forest model
+  federate       Federated aggregation of local models
+  detect         Score new SDN flows for anomalies
+  evaluate       Evaluate model(s) on labeled test data
+  sanitize       Run Z-score poisoning sanitizer on client metrics
+  demo           Standalone poisoning attack demo (Tool 2)
+  simulate-fl    Multi-round federated learning simulation
+
+Tool 4 (new):
+  dashboard      Launch the HITL operator dashboard (Flask, port 5000)
+  hitl           Run one detection scan and print alerts to terminal
+  demo-hitl      Run a named demo scenario from config/hitl_config.yaml
+
+Usage examples
+──────────────
+  python3 cli.py generate-data --n-clients 3 --n-benign 2000 --n-attack 400
+  python3 cli.py train   --data data/client1.csv --client-id client1 --out models/client1.pkl
+  python3 cli.py federate --models "models/client*.pkl" --out models/global.pkl
+  python3 cli.py detect  --model models/global.pkl --data data/new_flows.csv --top-n 10
+  python3 cli.py sanitize --input data/client_metrics.csv
+  python3 cli.py simulate-fl --config config/fed_config.yaml --poison h6:100
+  python3 cli.py dashboard --model models/global.pkl --data data/live_client1.csv
+  python3 cli.py hitl     --model models/global.pkl --data data/new_flows.csv --interactive
+  python3 cli.py demo-hitl --scenario ddos
+"""
 
 import argparse
 import sys
 import os
 import csv
+
+# Make sure src/ and sdn_mininet/ are importable regardless of where
+# the user runs the command from.
 sys.path.insert(0, os.path.dirname(__file__))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'sdn_mininet'))
-# Import existing Tool 1 CLI command handlers; I need to install package "src" in install.sh
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "sdn_mininet"))
+
+# ── Tool 1 handlers (imported from src/cli.py) ────────────────────────────────
 from src.cli import (
     cmd_train_local,
     cmd_federated_aggregate,
@@ -44,16 +62,26 @@ from src.cli import (
     cmd_generate_data,
 )
 
-# Import Tool 2 poisoning-defense components
+# ── Tool 2 components ─────────────────────────────────────────────────────────
 from src.sanitizer import aggregate_with_sanitizer
 from src.federated import simulate_fl_rounds
 from sdn_mininet.poisoned_host import run_standalone_demo
 
+# ── Tool 4 components ─────────────────────────────────────────────────────────
+# Imported lazily inside each handler so Flask / joblib are only required
+# when those specific commands are used.  This keeps `python3 cli.py --help`
+# fast and avoids hard import failures on machines without Flask installed.
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TOOL 2 COMMAND HANDLERS  (unchanged from original)
+# ══════════════════════════════════════════════════════════════════════════════
 
 """ Tool 2: sanitize command
 Load client metrics from a CSV file, apply Z-score sanitization,
 and print a poisoning detection report. Expected CSV format:
-host_id,metric, e.g., h1,0.12 ...
+  host_id,metric   e.g.  h1,0.12
+
 Usage: python3 cli.py sanitize --input data/client_metrics.csv
 """
 def cmd_sanitize(args):
@@ -62,17 +90,14 @@ def cmd_sanitize(args):
         print(f"[!] Input file not found: {args.input}")
         sys.exit(1)
 
-    # Store client metrics as:
     client_updates = {}
 
     # Read metrics from the CSV file
     with open(args.input, newline="") as f:
         reader = csv.DictReader(f)
-
         for row in reader:
             client_updates[row["host_id"]] = float(row["metric"])
 
-    # Ensure the CSV was not empty
     if not client_updates:
         print("[!] No rows found in input CSV.")
         sys.exit(1)
@@ -82,132 +107,95 @@ def cmd_sanitize(args):
     # Run Byzantine-robust aggregation using Z-score sanitization
     global_model, report = aggregate_with_sanitizer(
         client_updates,
-        z_threshold=args.z_threshold
+        z_threshold=args.z_threshold,
     )
 
     # Print sanitization summary
     print("\n" + "\n".join(report.summary_lines()))
 
-    # Save a detailed per-host report to CSV
+    # Save a detailed per-host report to CSV if requested
     if args.out:
-
-        # Create output directory if it does not already exist
         os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
-
-        # Open the output CSV file for writing sanitized client results.
-        # The newline="" argument prevents extra blank lines on some systems.
         with open(args.out, "w", newline="") as f:
-
-            # Create a CSV writer that stores dictionary-based rows.
-            # Each field name defines a column in the output report.
             writer = csv.DictWriter(
                 f,
-                fieldnames=[
-                    "host_id",
-                    "metric",
-                    "z_score",
-                    "accepted",
-                    "reason"
-                ]
+                fieldnames=["host_id", "metric", "z_score", "accepted", "reason"],
             )
-
-            # Write the column names as the first row of the CSV file.
             writer.writeheader()
-
-            # Write one report row per client host
             for hr in report.host_reports:
                 writer.writerow({
                     "host_id": hr.host_id,
-                    "metric": hr.value,
+                    "metric":  hr.value,
                     "z_score": f"{hr.z_score:.4f}",
                     "accepted": hr.accepted,
-                    "reason": hr.reason,
+                    "reason":  hr.reason,
                 })
-
         print(f"\nSanitizer report saved to: {args.out}")
 
     return report
 
 
-""" Test for Tool 2
-Run a standalone poisoning attack demonstration that
-demos simulated malicious federated learning clients and shows
-how the sanitizer detects and removes poisoned updates.
+""" Tool 2: demo command
+Run a standalone poisoning attack demonstration.
+Shows simulated malicious FL clients and how the sanitizer
+detects and removes poisoned updates.
+
 Usage: python3 cli.py demo
 """
 def cmd_demo(args):
     run_standalone_demo()
 
 
-""" Extended FL simulation
-Run a multi-round FL simulation
-Tool 2 extends the original Tool 1 simulation:
-- Byzantine-robust sanitization
-- Poisoned client injection
-- Adjustable Z-score thresholds
-Usage: python3 cli.py simulate-fl --config config.yaml --poison h6:100
+""" Tool 2: simulate-fl command
+Run a multi-round Federated Learning simulation with optional
+Byzantine-robust sanitization and poisoned client injection.
+
+Usage: python3 cli.py simulate-fl --config config/fed_config.yaml
+       python3 cli.py simulate-fl --config config/fed_config.yaml --poison h6:100
+       python3 cli.py simulate-fl --config config/fed_config.yaml --no-sanitize
 """
 def cmd_simulate_fl(args):
-    # YAML is used to load FL simulation configuration files
     try:
         import yaml
-
     except ImportError:
         print("[!] PyYAML is required for --config. Install: pip install pyyaml")
         sys.exit(1)
 
-    # Load simulation configuration
+    # Load simulation configuration from YAML
     with open(args.config) as f:
         cfg = yaml.safe_load(f)
 
-    # Parse poisoned clients from the command line
+    # Parse poisoned client definitions from --poison h6:100 h5:50 ...
     poisoned_clients = {}
-
-    # Parse poisoned client definitions passed through the command line.
-    # Each entry should be formated -> host_id:multiplier
     if args.poison:
         for entry in args.poison:
             host_id, mult = entry.split(":")
             poisoned_clients[host_id.strip()] = float(mult.strip())
-
         print(f"\n[CLI] Poisoning simulation enabled: {poisoned_clients}")
 
     # Run the federated learning simulation
     round_results = simulate_fl_rounds(
-        client_data_paths=cfg["client_data"],
-        client_ids=cfg["client_ids"],
-        model_dir=cfg.get("model_dir", "models"),
-        n_rounds=cfg.get("n_rounds", 3),
-        n_estimators=cfg.get("n_estimators", 100),
-
-        # Enable or disable sanitizer protection
-        sanitize=not args.no_sanitize,
-
-        # Override default Z-score threshold
-        z_threshold=args.z_threshold,
-
-        # Inject malicious clients if specified
-        poisoned_clients=poisoned_clients or None,
-
-        # Save sanitization logs
-        log_path=args.log_path,
+        client_data_paths = cfg["client_data"],
+        client_ids        = cfg["client_ids"],
+        model_dir         = cfg.get("model_dir", "models"),
+        n_rounds          = cfg.get("n_rounds", 3),
+        n_estimators      = cfg.get("n_estimators", 100),
+        sanitize          = not args.no_sanitize,
+        z_threshold       = args.z_threshold,
+        poisoned_clients  = poisoned_clients or None,
+        log_path          = args.log_path,
     )
 
     print(f"\nFL simulation complete. {len(round_results)} round(s) run.\n")
 
-    # Print per-round simulation results
+    # Print per-round results
     for rr in round_results:
-
-        # Retrieve sanitization report for the round
         san = rr.get("sanitization_report")
-
-        # Determine whether poisoning was detected
         status = (
             f"POISONING DETECTED — rejected: {san.rejected_hosts}"
             if san and san.poisoning_detected
             else "clean"
         )
-
         print(
             f"  Round {rr['round']}: "
             f"global_threshold = {rr['global_threshold']:.4f}  "
@@ -215,275 +203,561 @@ def cmd_simulate_fl(args):
         )
 
 
-# Build command-line argument parser
+# ══════════════════════════════════════════════════════════════════════════════
+# TOOL 4 COMMAND HANDLERS  (new)
+# ══════════════════════════════════════════════════════════════════════════════
+
+""" Tool 4: dashboard command
+Launch the HITL operator dashboard web server.
+
+Starts a Flask server on port 5000 serving the browser-based alert
+review UI (dashboard/templates/index.html).  A background scanner
+thread re-runs detect() on the live data file every 30 seconds and
+pushes new alerts to the queue automatically.
+
+When an operator approves an alert in the browser, mitigator.py
+installs a DROP flow rule on the target switch via the Ryu REST API
+(port 8080) or the raw OpenFlow socket fallback (ptcp:6654).
+
+Usage:
+  python3 cli.py dashboard
+  python3 cli.py dashboard --model models/global.pkl --data data/live_client1.csv
+  python3 cli.py dashboard --port 5001 --no-auto-scan
+"""
+def cmd_dashboard(args):
+    try:
+        from dashboard.app import create_app
+    except ImportError as e:
+        print(f"[!] Dashboard import failed: {e}")
+        print("[!] Install Flask: pip install flask flask-cors")
+        sys.exit(1)
+
+    os.makedirs("results", exist_ok=True)
+
+    print("=" * 60)
+    print("  Tool 4 — HITL Operator Dashboard")
+    print(f"  Model  : {args.model}")
+    print(f"  Data   : {args.data}")
+    print(f"  URL    : http://localhost:{args.port}")
+    print(f"  API    : http://localhost:{args.port}/api/alerts")
+    print(f"  Scan   : {'manual only (--no-auto-scan)' if args.no_auto_scan else f'every 30s (auto)'}")
+    print("=" * 60)
+    print()
+
+    app = create_app(
+        model_path = args.model,
+        data_path  = args.data,
+        auto_scan  = not args.no_auto_scan,
+    )
+
+    # use_reloader=False is critical — Flask's reloader forks the process
+    # and would start a second background scanner thread.
+    app.run(
+        host         = args.host,
+        port         = args.port,
+        debug        = args.debug,
+        use_reloader = False,
+    )
+
+
+""" Tool 4: hitl command
+Run one detection scan and print explainable alerts to the terminal.
+
+This is the terminal-mode HITL interface — no browser required.
+The operator sees the full explanation and recommendation for each
+alert and can optionally approve/block, monitor, or ignore each one
+interactively, or use --auto-block to block all HIGH alerts without
+prompting.
+
+Usage:
+  python3 cli.py hitl --model models/global.pkl --data data/new_flows.csv
+  python3 cli.py hitl --model models/global.pkl --data data/new_flows.csv --interactive
+  python3 cli.py hitl --model models/global.pkl --data data/new_flows.csv --auto-block
+  python3 cli.py hitl --model models/global.pkl --data data/new_flows.csv --out results/alerts.csv
+"""
+def cmd_hitl(args):
+    import joblib
+    from src.detect import detect
+    from src.hitl import alerts_from_detections, Decision
+    from src.explainer import format_alert_for_cli, format_alert_summary_line
+    from sdn_mininet.mitigator import Mitigator, MitigationAction
+
+    # Validate input paths
+    if not os.path.exists(args.model):
+        print(f"[!] Model not found: {args.model}")
+        sys.exit(1)
+    if not os.path.exists(args.data):
+        print(f"[!] Data file not found: {args.data}")
+        sys.exit(1)
+
+    print(f"\n[HITL] Loading model : {args.model}")
+    print(f"[HITL] Scoring flows : {args.data}\n")
+
+    # Load model bundle and score the flow data
+    bundle = joblib.load(args.model)
+    df = detect(
+        model_path = args.model,
+        data_path  = args.data,
+        threshold  = args.threshold,
+        top_n      = None,   # HITL handles its own display
+        verbose    = True,
+    )
+
+    # Convert the top anomalous rows into Alert objects
+    alerts = alerts_from_detections(
+        df,
+        bundle,
+        min_confidence = args.min_confidence,
+        max_alerts     = args.top_n,
+    )
+
+    if not alerts:
+        print("\n[HITL] No alerts generated — network looks clean.")
+        return
+
+    print(f"\n[HITL] {len(alerts)} alert(s) generated:\n")
+
+    # Print one-line summary table first so the operator can triage
+    for a in alerts:
+        print(format_alert_summary_line(a))
+    print()
+
+    # Print full detail for each alert, then prompt or auto-act
+    for i, alert in enumerate(alerts):
+        print(format_alert_for_cli(alert))
+
+        # ── Auto-block mode ───────────────────────────────────────────────
+        if args.auto_block and alert.severity.value == "high":
+            print(f"\n[HITL] --auto-block: blocking {alert.src_ip}...")
+            m      = Mitigator()
+            result = m.from_alert(alert, action=MitigationAction.BLOCK)
+            if result.status.value == "success":
+                print(f"[HITL] ✓ {result.summary()}")
+            else:
+                print(f"[HITL] ✗ Mitigation failed: {result.error}")
+
+        # ── Interactive mode ──────────────────────────────────────────────
+        elif args.interactive:
+            print(
+                "\nAction?"
+                " [a]pprove/block"
+                "  [m]onitor"
+                "  [i]gnore"
+                "  [s]kip : ",
+                end="",
+                flush=True,
+            )
+            try:
+                choice = input().strip().lower()
+            except (EOFError, KeyboardInterrupt):
+                print("\n[HITL] Interrupted.")
+                break
+
+            if choice == "a":
+                m      = Mitigator()
+                result = m.from_alert(alert, action=MitigationAction.BLOCK)
+                if result.status.value == "success":
+                    print(f"[HITL] ✓ DROP rule installed — {result.summary()}")
+                else:
+                    print(f"[HITL] ✗ Mitigation failed: {result.error}")
+            elif choice == "m":
+                print(f"[HITL] 👁  Alert #{alert.alert_id} flagged for monitoring.")
+            elif choice == "i":
+                print(f"[HITL] ✕  Alert #{alert.alert_id} dismissed.")
+            else:
+                print(f"[HITL] Skipped.")
+
+        # Add blank line between alerts for readability
+        if i < len(alerts) - 1:
+            print()
+
+    # Save alert report to CSV if --out was specified
+    if args.out:
+        import pandas as pd
+        rows = [a.to_dict() for a in alerts]
+        os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
+        pd.DataFrame(rows).to_csv(args.out, index=False)
+        print(f"\n[HITL] Alert report saved to: {args.out}")
+
+    print(f"\n[HITL] Done. {len(alerts)} alert(s) processed.")
+
+
+""" Tool 4: demo-hitl command
+Run a named demonstration scenario defined in config/hitl_config.yaml.
+
+Each scenario specifies the attack type, data file, model path,
+expected severity, and whether to verify the installed SDN rule after
+mitigation.  Delegates to cmd_hitl in interactive mode so the operator
+can walk through the full HITL loop on camera.
+
+Usage:
+  python3 cli.py demo-hitl --scenario ddos
+  python3 cli.py demo-hitl --scenario port_scan
+  python3 cli.py demo-hitl --scenario flowmod_inject
+  python3 cli.py demo-hitl --scenario fte
+  python3 cli.py demo-hitl --scenario baseline
+"""
+def cmd_demo_hitl(args):
+    try:
+        import yaml
+    except ImportError:
+        print("[!] PyYAML required: pip install pyyaml")
+        sys.exit(1)
+
+    config_path = args.config
+    if not os.path.exists(config_path):
+        print(f"[!] Config not found: {config_path}")
+        sys.exit(1)
+
+    with open(config_path) as f:
+        cfg = yaml.safe_load(f)
+
+    scenarios = cfg.get("demo_scenarios", {})
+
+    if args.scenario not in scenarios:
+        print(
+            f"[!] Unknown scenario '{args.scenario}'.\n"
+            f"    Available: {list(scenarios.keys())}"
+        )
+        sys.exit(1)
+
+    scenario = scenarios[args.scenario]
+
+    print(f"\n{'=' * 60}")
+    print(f"  Tool 4 HITL Demo — scenario: {args.scenario}")
+    print(f"  {scenario['description']}")
+    print(f"{'=' * 60}\n")
+
+    # Build a namespace that looks like parsed hitl args
+    class _ScenarioArgs:
+        model          = scenario.get("model_path", "models/global.pkl")
+        data           = scenario.get("data_path",  "data/new_flows.csv")
+        threshold      = None
+        min_confidence = 40.0    # lower threshold so demo always produces alerts
+        top_n          = 5
+        auto_block     = False
+        interactive    = True
+        out            = None
+
+    cmd_hitl(_ScenarioArgs())
+
+    # If the scenario requests rule verification, show ovs-ofctl output
+    if scenario.get("verify_after"):
+        dpid = scenario.get("mitigation_dpid", 1)
+        print(f"\n[Demo] Verifying installed rules on s{dpid}...")
+        from sdn_mininet.mitigator import verify_rule_installed
+        output = verify_rule_installed(dpid)
+        print(output)
+        print(
+            "\nLook for:\n"
+            "  Tool 4 rule : cookie=0xfeedfacecafe0004  priority=30000  actions=drop\n"
+            "  Tool 3 rule : cookie=0xdeadbeefcafe0001  priority=40000  actions=drop\n"
+        )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# ARGUMENT PARSER
+# ══════════════════════════════════════════════════════════════════════════════
+
 def build_parser() -> argparse.ArgumentParser:
-    # Main CLI parser, these description appears in `--help`
+    """Build and return the full argument parser for all tools."""
+
     p = argparse.ArgumentParser(
-        prog="sdn-fl-detector",
-
+        prog="cli.py",
         description=(
-            "SDN Federated Anomaly Detector with Model Poisoning Defense\n"
-            "Tool 1: Federated anomaly detection for SDN\n"
-            "Tool 2: Byzantine-robust aggregation and poisoning defense\n"
+            "SDN Federated Anomaly Detector with Human-in-the-Loop Security\n"
+            "\n"
+            "Tool 1: Federated anomaly detection for SDN traffic\n"
+            "Tool 2: Byzantine-robust model poisoning defense\n"
+            "Tool 3: OpenFlow FlowMod injection (attack demo)\n"
+            "Tool 4: Human-in-the-Loop operator dashboard\n"
         ),
-
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
-    # Subcommands container
     sub = p.add_subparsers(dest="command", metavar="<command>")
 
-    # Tool 1: generate synthetic training data
+    # ── Tool 1: generate-data ─────────────────────────────────────────────────
     sp = sub.add_parser(
         "generate-data",
-        help="Generate synthetic SDN flow data"
+        help="Generate synthetic SDN flow datasets (Tool 1)",
     )
-
-    ''' Add command-line arguments for synthetic dataset generation
-    These options control dataset size, number of clients,
-    output directory, and random seed for reproducibility '''
-    # Number of normal (benign) samples to generate.
-    sp.add_argument("--n-benign", type=int, default=2000) # Tool 2 normal -> benign
-    # Number of attack/anomalous samples to generate.
-    sp.add_argument("--n-attack", type=int, default=500)
-    # Number of federated learning clients to simulate.
-    sp.add_argument("--n-clients", type=int, default=3) # Tool2 add -n
-    # Directory where generated datasets will be saved.
-    sp.add_argument("--out-dir", default="data")
-    # Random seed used to ensure reproducible results.
-    sp.add_argument("--seed", type=int, default=42)
-
-    # Set the default function to run when the "generate-data" command is selected
-    # This connects the parsed CLI arguments to the cmd_generate_data handler
+    sp.add_argument("--n-benign",  type=int, default=2000, help="Normal flow count per client")
+    sp.add_argument("--n-attack",  type=int, default=500,  help="Attack flow count per client")
+    sp.add_argument("--n-clients", type=int, default=3,    help="Number of FL clients to simulate")
+    sp.add_argument("--out-dir",   default="data",         help="Output directory for generated CSVs")
+    sp.add_argument("--seed",      type=int, default=42,   help="Random seed for reproducibility")
     sp.set_defaults(func=cmd_generate_data)
 
-    # Tool 1: train local models
+    # ── Tool 1: train ─────────────────────────────────────────────────────────
     sp = sub.add_parser(
         "train",
-        help="Train local Isolation Forest models"
+        help="Train a local Isolation Forest model on one client's data (Tool 1)",
     )
-
-    '''Add command-line arguments for training a local client model'''
-    # Path to the training dataset CSV file
-    sp.add_argument("--data", required=True)
-    # Unique identifier for the FL client
-    sp.add_argument("--client-id", required=True)
-    # Directory where trained models will be stored - Tool 2 adjusted
-    sp.add_argument(
-        "--out", 
-        required=True,
-        help="Output path for trained model (.pkl)"
-    )
-    
-    # Number of trees used in the Isolation Forest model.
-    # Higher values may improve stability but increase training time.
-    sp.add_argument("--n-estimators", type=int, default=100)
-
-    # Tool2: Expected anomaly rate used by Isolation Forest
-    # Use 'auto' to allow the model to decide, or use a float, e.g. 0.05
+    sp.add_argument("--data",          required=True, help="Input CSV file (flow data)")
+    sp.add_argument("--client-id",     required=True, help="Client identifier, e.g. client1")
+    sp.add_argument("--out",           required=True, help="Output path for trained model (.pkl)")
+    sp.add_argument("--n-estimators",  type=int, default=100, help="Isolation Forest tree count")
     sp.add_argument(
         "--contamination",
         default="auto",
-        help="Expected anomaly rate (auto or float)"
+        help="Expected anomaly rate (auto or float, e.g. 0.05)",
     )
-    
-    # Set the default function to run when the "train" command is selected.
-    # This connects the parsed CLI arguments to the cmd_train_local handler
     sp.set_defaults(func=cmd_train_local)
 
-    # Tool 1: federated aggregation of local models
-    # Create a command for combining local client models into a global model
+    # ── Tool 1: federate ──────────────────────────────────────────────────────
     sp = sub.add_parser(
         "federate",
-        help="Federated aggregation of local models"
+        help="Federated aggregation of local models into a global model (Tool 1)",
     )
-
-    # Glob pattern to match all local client model files
-    sp.add_argument(
-        "--models",
-        required=True,
-        help="Glob pattern e.g. models/client*.pkl"
-    )
-
-    # Output path where the aggregated global model will be saved
-    sp.add_argument(
-        "--out",
-        required=True,
-        help="Output path for global model"
-    )
-
-    # Aggregation strategy to use when combining local models
+    sp.add_argument("--models",   required=True, help='Glob pattern, e.g. "models/client*.pkl"')
+    sp.add_argument("--out",      required=True, help="Output path for global model (.pkl)")
     sp.add_argument(
         "--strategy",
         default="score_ensemble",
         choices=["score_ensemble", "threshold_consensus"],
-        help="How to combine the models"
+        help="Aggregation strategy (default: score_ensemble)",
     )
-
-    # Set the default function to run when the "federate" command is selected.
-    # This connects the parsed CLI arguments to the cmd_federated_aggregate handler
     sp.set_defaults(func=cmd_federated_aggregate)
 
-    # Tool 1: detect anomalies
-    # Create a command for scoring and identifying suspicious SDN flows.
+    # ── Tool 1: detect ────────────────────────────────────────────────────────
     sp = sub.add_parser(
         "detect",
-        help="Score new SDN flows"
+        help="Score new SDN flows and flag anomalies (Tool 1)",
     )
-
-    # Path to the trained model file used for detection
-    sp.add_argument("--model", required=True)
-    # Path to the CSV file containing flow data to analyze
-    sp.add_argument("--data", required=True)
-    # Optional anomaly score threshold
-    # Flows exceeding this threshold are marked as anomalous
-    sp.add_argument("--threshold", type=float, default=None)
-    # Optional limit for displaying only the top-N highest anomaly scores
-    sp.add_argument("--top-n", type=int, default=None)
-    # Output CSV file where detection results will be saved.
-    sp.add_argument("--out", default="results/detections.csv")
-
-    # Set the default function to run when the "detect" command is selected
-    # This connects the parsed CLI arguments to the cmd_detect handler
+    sp.add_argument("--model",     required=True,        help="Path to trained model bundle (.pkl)")
+    sp.add_argument("--data",      required=True,        help="Flow CSV to score")
+    sp.add_argument("--threshold", type=float, default=None, help="Anomaly score threshold override")
+    sp.add_argument("--top-n",     type=int,   default=None, help="Show top N most anomalous flows")
+    sp.add_argument("--out",       default="results/detections.csv", help="Save results to CSV")
     sp.set_defaults(func=cmd_detect)
 
-    # Tool 1: evaluate detection results
-    # Create command for measuring anomal detection performance
+    # ── Tool 1 / 2: evaluate ─────────────────────────────────────────────────
     sp = sub.add_parser(
         "evaluate",
-        help="Evaluate detection performance"
+        help="Evaluate model(s) on labeled test data (Tool 1 / 2)",
     )
-
-    # Path to the global federated model file for Tool 2
-    sp.add_argument("--model", required=True)
-
-    # Path to the labeled test dataset for evaluation - for Tool 2
-    sp.add_argument("--data", required=True)
-    # Path to the CSV file containing detection results and labels.
-    sp.add_argument("--detections", required=True)
-
-    # Optional anomaly score threshold override for Tool 2
-    sp.add_argument("--threshold", type=float, default=None)
-
-    # Optional glob pattern for local client models to compare against global for Tool 2
-    sp.add_argument("--local-models", default=None)
-    
-    # Directory where evaluation reports and metrics will be saved
-    sp.add_argument("--out", default="results")
-
-    # Set the default function to run when the "evaluate" command is selected.
-    # This connects the parsed CLI arguments to the cmd_evaluate handler.
+    sp.add_argument("--model",       required=True, help="Global model to evaluate")
+    sp.add_argument("--data",        required=True, help="Labeled test dataset CSV")
+    sp.add_argument("--detections",  required=True, help="Detection results CSV from detect command")
+    sp.add_argument("--local-models", default=None, help='Glob for local models, e.g. "models/client*.pkl"')
+    sp.add_argument("--threshold",   type=float, default=None, help="Score threshold override")
+    sp.add_argument("--out",         default="results", help="Output directory for metrics and plots")
     sp.set_defaults(func=cmd_evaluate)
 
-    # Tool 2: sanitizer command
-    # Create a subparser for the "sanitize" CLI command, which runs Z-score analysis
+    # ── Tool 2: sanitize ──────────────────────────────────────────────────────
     sp = sub.add_parser(
         "sanitize",
-        help="Run Z-score sanitizer on client metrics CSV"
+        help="Run Z-score poisoning sanitizer on client metrics CSV (Tool 2)",
     )
-
-    # Required argument: input CSV file containing host IDs and metric columns
     sp.add_argument(
         "--input",
         required=True,
-        help="CSV containing host_id and metric columns"
+        help="CSV with columns: host_id, metric",
     )
-
-    # Optional argument: Z-score threshold for identifying outliers
-    # If not provided, defaults depend on group size (1.5 or 2.0)
     sp.add_argument(
         "--z-threshold",
         type=float,
         default=None,
-        help=(
-            "Z-score cutoff "
-            "(default: 1.5 for small groups, 2.0 for larger groups)"
-        )
+        help="Z-score cutoff (default: 1.5 for small groups, 2.0 for larger)",
     )
-
-    # Optional argument: output file path for saving the sanitizer report
     sp.add_argument(
         "--out",
         default=None,
-        help="Save detailed sanitizer report to CSV"
+        help="Save per-host sanitizer report to CSV",
     )
-
-    # Set the function to execute when this command is called
     sp.set_defaults(func=cmd_sanitize)
 
-    # Tool 2: standalone poisoning demo
+    # ── Tool 2: demo ──────────────────────────────────────────────────────────
     sp = sub.add_parser(
         "demo",
-        help="Run standalone poisoning attack demo"
+        help="Run standalone model poisoning attack demonstration (Tool 2)",
     )
-
-    # Set the default function to run when the demo command is selected.
     sp.set_defaults(func=cmd_demo)
 
-    # Tool 2: extended federated learning simulation
+    # ── Tool 2: simulate-fl ───────────────────────────────────────────────────
     sp = sub.add_parser(
         "simulate-fl",
-        help="Run multi-round federated learning simulation"
+        help="Run multi-round federated learning simulation (Tool 2)",
     )
-
-    # YAML config file describing FL setup
     sp.add_argument(
         "--config",
         required=True,
-        help="Federated learning simulation config YAML"
+        help="FL simulation config YAML (e.g. config/fed_config.yaml)",
     )
-
-    # Disable poisoning defense and use naive FedAvg
     sp.add_argument(
         "--no-sanitize",
         action="store_true",
-        help="Disable sanitizer and use naive FedAvg"
+        help="Disable Z-score sanitizer and use naive FedAvg (Tool 1 behaviour)",
     )
-
-    # Override default Z-score threshold
-    sp.add_argument("--z-threshold", type=float, default=None)
-
-    # Inject malicious clients
+    sp.add_argument(
+        "--z-threshold",
+        type=float,
+        default=None,
+        help="Override Z-score cutoff from config",
+    )
     sp.add_argument(
         "--poison",
         nargs="*",
         metavar="HOST:MULTIPLIER",
-        help="Inject poisoned clients, e.g. --poison h6:100 h5:50"
+        help="Inject poisoned clients, e.g. --poison h6:100 h5:50",
     )
-
-    # Save sanitizer logs
     sp.add_argument(
         "--log-path",
-        default="results/sanitizer_log.csv"
+        default="results/sanitizer_log.csv",
+        help="Path to write per-round sanitizer audit log",
     )
-
-    # This connects the parsed CLI arguments to the cmd_simulate_fl handler.
-    # Set the default function to run when the simulate-fl command is selected.
     sp.set_defaults(func=cmd_simulate_fl)
+
+    # ── Tool 4: dashboard ─────────────────────────────────────────────────────
+    sp = sub.add_parser(
+        "dashboard",
+        help="Launch the HITL operator dashboard web server on port 5000 (Tool 4)",
+    )
+    sp.add_argument(
+        "--model",
+        default="models/global.pkl",
+        help="Path to trained model bundle (.pkl) [default: models/global.pkl]",
+    )
+    sp.add_argument(
+        "--data",
+        default="data/new_flows.csv",
+        help="Flow CSV to scan [default: data/new_flows.csv]",
+    )
+    sp.add_argument(
+        "--port",
+        type=int,
+        default=5000,
+        help="Dashboard port (default: 5000 — must NOT be 8080, that belongs to Ryu)",
+    )
+    sp.add_argument(
+        "--host",
+        default="0.0.0.0",
+        help="Host to bind (default: 0.0.0.0 so the VM's browser can reach it)",
+    )
+    sp.add_argument(
+        "--no-auto-scan",
+        action="store_true",
+        help="Disable background auto-scan; use the ⚡ button in the dashboard instead",
+    )
+    sp.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable Flask debug mode (WARNING: breaks the background scanner thread)",
+    )
+    sp.set_defaults(func=cmd_dashboard)
+
+    # ── Tool 4: hitl (terminal mode) ─────────────────────────────────────────
+    sp = sub.add_parser(
+        "hitl",
+        help="Run one HITL detection scan and print explainable alerts (Tool 4)",
+    )
+    sp.add_argument(
+        "--model",
+        default="models/global.pkl",
+        help="Path to trained model bundle (.pkl) [default: models/global.pkl]",
+    )
+    sp.add_argument(
+        "--data",
+        default="data/new_flows.csv",
+        help="Flow CSV to score [default: data/new_flows.csv]",
+    )
+    sp.add_argument(
+        "--threshold",
+        type=float,
+        default=None,
+        help="Anomaly score threshold override (default: model's consensus threshold)",
+    )
+    sp.add_argument(
+        "--min-confidence",
+        type=float,
+        default=50.0,
+        help="Minimum confidence %% to create an alert (default: 50.0)",
+    )
+    sp.add_argument(
+        "--top-n",
+        type=int,
+        default=10,
+        help="Maximum number of alerts to display (default: 10)",
+    )
+    sp.add_argument(
+        "--auto-block",
+        action="store_true",
+        help="Automatically install DROP rules for all HIGH-severity alerts without prompting",
+    )
+    sp.add_argument(
+        "--interactive",
+        action="store_true",
+        help="Prompt for each alert: [a]pprove/block  [m]onitor  [i]gnore  [s]kip",
+    )
+    sp.add_argument(
+        "--out",
+        default=None,
+        help="Save alert report to CSV (e.g. results/hitl_alerts.csv)",
+    )
+    sp.set_defaults(func=cmd_hitl)
+
+    # ── Tool 4: demo-hitl ────────────────────────────────────────────────────
+    sp = sub.add_parser(
+        "demo-hitl",
+        help="Run a named HITL demo scenario from hitl_config.yaml (Tool 4)",
+    )
+    sp.add_argument(
+        "--scenario",
+        required=True,
+        choices=["ddos", "port_scan", "flowmod_inject", "fte", "baseline"],
+        help=(
+            "Demo scenario to run (defined in config/hitl_config.yaml):\n"
+            "  ddos           — DDoS SYN flood from h4\n"
+            "  port_scan      — nmap port scan from h6\n"
+            "  flowmod_inject — Tool 3 rogue FlowMod from h7\n"
+            "  fte            — Flow table exhaustion\n"
+            "  baseline       — Clean traffic, no alerts expected"
+        ),
+    )
+    sp.add_argument(
+        "--config",
+        default="config/hitl_config.yaml",
+        help="Path to HITL config YAML [default: config/hitl_config.yaml]",
+    )
+    sp.set_defaults(func=cmd_demo_hitl)
 
     return p
 
 
-# Main function
+# ══════════════════════════════════════════════════════════════════════════════
+# MAIN
+# ══════════════════════════════════════════════════════════════════════════════
+
 def main():
-    # Build parser and read command-line arguments
+    """Parse arguments and dispatch to the correct command handler."""
     parser = build_parser()
-    args = parser.parse_args()
+    args   = parser.parse_args()
+
+    if not args.command:
+        parser.print_help()
+        sys.exit(0)
 
     dispatch = {
+        # Tool 1
         "generate-data": cmd_generate_data,
-        "train": cmd_train_local,
-        "federate": cmd_federated_aggregate,
-        "detect": cmd_detect,
-        "evaluate": cmd_evaluate,
-        "simulate-fl": cmd_simulate_fl,
-        "demo": cmd_demo,
-        "sanitize": cmd_sanitize,
+        "train":         cmd_train_local,
+        "federate":      cmd_federated_aggregate,
+        "detect":        cmd_detect,
+        "evaluate":      cmd_evaluate,
+        # Tool 2
+        "sanitize":      cmd_sanitize,
+        "demo":          cmd_demo,
+        "simulate-fl":   cmd_simulate_fl,
+        # Tool 4
+        "dashboard":     cmd_dashboard,
+        "hitl":          cmd_hitl,
+        "demo-hitl":     cmd_demo_hitl,
     }
 
     dispatch[args.command](args)
 
 
-# Run main() when executed from terminal
+# Run main() when executed directly from the terminal
 if __name__ == "__main__":
     main()
