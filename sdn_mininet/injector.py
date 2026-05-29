@@ -265,21 +265,22 @@ def build_drop_flowmod(target_port: int, priority: int) -> bytes:
         xid=3
     )
 
+
+"""
+Request EQUAL role so OVS allows us to install FlowMods
+even while Ryu holds MASTER role on the same switch.
+Body: role(4) + pad(4) + generation_id(8) = 16 bytes
+"""
 def build_role_request() -> bytes:
-    """
-    Request EQUAL role so OVS allows us to install FlowMods
-    even while Ryu holds MASTER role on the same switch.
-    Body: role(4) + pad(4) + generation_id(8) = 16 bytes
-    """
     body = struct.pack("!IIQ",
         OFPCR_ROLE_EQUAL,  # role
-        0,                 # pad
-        0,                 # generation_id (ignored for EQUAL)
+        0,  # pad
+        0,  # generation_id (ignored for EQUAL)
     )
     return _ofp_header(OFPT_ROLE_REQUEST, body, xid=4)
 
 
-# Phase 1 — Passive Control Channel Sniffer
+# *** Phase 1 — Passive Control Channel Sniffer ***
 
 """
 Passively monitors OpenFlow traffic on the loopback interface.
@@ -407,7 +408,7 @@ class ControlChannelSniffer:
         return self._fired.is_set()
 
 
-# Phase 2 — FlowMod Injectr
+# *** Phase 2 — FlowMod Injectr ***
 
 # Read one complete OpenFlow message from the socket.
 #
