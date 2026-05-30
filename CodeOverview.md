@@ -2,7 +2,9 @@ I use DeepWiki to provide a code overview of my repository:
 
 "Using DeepWiki, provide an Overview of reviewer-dashboard."
 
-🐍 JS  </> Y
+🐍 <span style="color: yellow; font-weight: bold;">JS</span>
+<span style="color: orange; font-weight: bold;"></></span>
+<span style="color: purple; font-weight: bold;">Y</span>
 
 # Architecture Summary: SDN Federated Anomaly Detection
 
