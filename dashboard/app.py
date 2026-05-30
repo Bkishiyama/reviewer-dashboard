@@ -64,11 +64,10 @@ logger = logging.getLogger("dashboard.app")
 
 
 # Configuration
-
-DASHBOARD_PORT    = int(os.environ.get("DASHBOARD_PORT", "5000"))
-DASHBOARD_HOST    = os.environ.get("DASHBOARD_HOST", "0.0.0.0")
-STATIC_DIR        = os.path.join(os.path.dirname(__file__), "static")
-TEMPLATES_DIR     = os.path.join(os.path.dirname(__file__), "templates")
+DASHBOARD_PORT = int(os.environ.get("DASHBOARD_PORT", "5000"))
+DASHBOARD_HOST = os.environ.get("DASHBOARD_HOST", "0.0.0.0")
+STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
+TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "templates")
 
 # How often, in sec, the background scanner re-runs detect() on live data
 AUTO_SCAN_INTERVAL = int(os.environ.get("AUTO_SCAN_INTERVAL", "30"))
