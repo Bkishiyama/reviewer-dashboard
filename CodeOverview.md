@@ -2,10 +2,7 @@ I use DeepWiki to provide a code overview of my repository:
 
 "Using DeepWiki, provide an Overview of reviewer-dashboard."
 
-🐍
-<span style="color:#F7DF1E; font-weight:bold;">JS</span>
-<span style="color:#9B51E0; font-weight:bold;">&lt;/&gt;</span>
-<span style="color:#2F80ED; font-weight:bold;">YAML</span>
+🐍 PY 🟧 JS 🟪 </> 🟦 YAML
 
 # Architecture Summary: SDN Federated Anomaly Detection
 
