@@ -1,13 +1,15 @@
+# required for Python versions < 3.10
+# makes all type annotations in this file behave like strings
+from __future__ import annotations
+
+#!/usr/bin/env python3
+
 """
 src/sanitizer.py
 Purpose: check client's updates for model poisoning attacks.
 If detected, drop the offending client from the aggregation.
 If not detected, aggregate the client's updates into the global model.
 """
-
-# required for Python versions < 3.10
-# makes all type annotations in this file behave like strings
-from __future__ import annotations
 
 import math
 import logging

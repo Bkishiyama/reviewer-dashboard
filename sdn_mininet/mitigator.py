@@ -57,7 +57,6 @@ Usage (called by dashboard/app.py after operator approves an alert):
     print(result.summary())
 """
 
-from __future__ import annotations
 
 import json
 import logging

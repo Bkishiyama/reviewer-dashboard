@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+#!/usr/bin/env python3
+
 """ sdn_mininet/poisoned_host.py
 Black hat Host -> A Model Poisoning Attack
 
@@ -23,8 +27,6 @@ Step 4: h6 runs this script with --multiplier 100  (poisoning attack)
 Step 5: GET /fl/aggregate on controller -> and observe sanitizer DROP h6
 Step 6: Re-run h6 with --no-poison -> and observe sanitizer ACCEPT h6
 """
-
-from __future__ import annotations
 
 import argparse
 import json

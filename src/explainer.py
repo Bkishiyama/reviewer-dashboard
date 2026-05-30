@@ -33,7 +33,6 @@ Usage (called by hitl.py, but can also be used directly):
     recommendation = build_recommendation(severity, protocol, dst_port)
 """
 
-from __future__ import annotations
 
 import logging
 from typing import Optional

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+#!/usr/bin/env python3
+
 """
 detect.py - Anomaly Detection Engine
 I adjusted the parameters since my f1, precision, etc. came back as zero.

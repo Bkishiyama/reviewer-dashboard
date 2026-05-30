@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 #!/usr/bin/env python3
 
 """ sdn_mininet/topology.py 
@@ -267,6 +269,8 @@ def run(run_attacks: bool = False, run_inject: bool = False, duration: int = 60)
     info("[!] Topology connections:\n")
     dumpNodeConnections(net.hosts)
 
+    info("[!] Waiting for Ryu to install table-miss flows on all switches...\n")
+    time.sleep(5)
     info("[!] Testing basic connectivity (ping all pairs)\n")
     net.pingAll()
 
