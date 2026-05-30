@@ -1,4 +1,4 @@
-I use DeepWiki to provide a code overview of my repository: 
+I use DeepWiki to help provide a code overview of my repository: 
 
 "Using DeepWiki, provide an Overview of reviewer-dashboard."
 
@@ -7,7 +7,7 @@ I use DeepWiki to provide a code overview of my repository:
 # Architecture Summary: SDN Federated Anomaly Detection
 
 ## Overview
-A four-tool security system for Software-Defined Networks combining federated ML, poisoning defense, control-plane attack simulation, and human-centered threat response.
+This demonstrates 4 tools in a Software Defined Network (SDN) that uses Federated Learning (FL). The network structure uses Minitnet to create a Ryu Controller, three switches and six hosts. The tools involved are for a poisoning defense, control injection attack, and requres a human response to threats.
 
 ## Core Components
 
