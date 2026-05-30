@@ -1,10 +1,8 @@
-I'll use DeepWiki to gather information about the reviewer-dashboard architecture.
+I use DeepWiki to provide a code overview of my repository: 
 
-The repository `Bkishiyama/reviewer-dashboard` is not indexed in DeepWiki. I can analyze the codebase directly to summarize the architecture instead.
+"Using DeepWiki, provide an Overview of reviewer-dashboard."
 
-The repository is not indexed in DeepWiki. I'll analyze the codebase directly to summarize the architecture.
-
-The repository is not indexed in DeepWiki. Based on codebase analysis, here's the architecture summary:
+🐍 JS  </> Y
 
 # Architecture Summary: SDN Federated Anomaly Detection
 
