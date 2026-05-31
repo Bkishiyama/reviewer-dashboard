@@ -1,3 +1,4 @@
+from __future__ import annotations
 #!/usr/bin/env python3
 """
 scripts/generate_data.py -> Synthetic SDN Flow Log Generator
