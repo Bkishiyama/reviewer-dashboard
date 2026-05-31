@@ -1,3 +1,4 @@
+from __future__ import annotations
 #!/usr/bin/env python3
 
 """ sdn_mininet/injector.py
@@ -39,8 +40,6 @@ python3 sdn_mininet/injector.py --target-port 22 --skip-sniff
 topology.py --inject automatically launches this script from h7
 using --skip-sniff.
 """
-
-from __future__ import annotations
 
 import argparse
 import logging
