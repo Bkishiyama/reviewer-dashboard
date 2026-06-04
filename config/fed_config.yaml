@@ -12,12 +12,12 @@ client_data:
   - data/client6.csv
 
 client_ids:
-  - h1
-  - h2
-  - h3
-  - h4
-  - h5
-  - h6
+  - client1
+  - client2
+  - client3
+  - client4
+  - client5
+  - client6
 
 # FL parameters
 n_rounds: 3  # number of FL aggregation rounds
@@ -35,13 +35,13 @@ sanitize: true
 # Z-score threshold for rejecting poisoned updates
 # 1.5 = tight (recommended for ≤9 hosts)
 # 2.0 = standard (recommended for ≥10 hosts)
-z_threshold: 2.0
+z_threshold: 1.5
  
 # Poisoning simulation: specify which clients to poison and their multipliers
 # Comment out or set to {} to run a clean (healthy) simulation
 # Example: inject h6 with 100x multiplier to simulate an adversarial insider
 poisoned_clients:
-  h6: 100.0
+  client6: 100.0
  
 # Path to write per-round sanitizer audit log
 sanitizer_log: results/sanitizer_log.csv
