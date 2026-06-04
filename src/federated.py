@@ -121,7 +121,7 @@ def _model_bundle_to_scalar(bundle: dict) -> float:
     score_stats = bundle.get("score_stats", {})
     p5 = score_stats.get("p5")
     if p5 is not None:
-        return float(p5)
+        return abs(float(p5))   # use absolute value
     return 0.0
 
 
