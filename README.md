@@ -598,6 +598,202 @@ python3 -m pytest tests/test_sanitizer.py -v
 
 ---
 
+# Project File Descriptions
+
+## The Core Data & Feature Pipeline
+
+Before any machine learning happens, network traffic has to be captured and turned into numbers a model can understand.
+
+### scripts/generate_data.py
+
+This is the first program of my pipeline as it creates data, or fake network logs. This program generates synthetic network flow logs from scratch without relying on the input of external data. It uses statistical rules to make realistic benign traffic along with specific cyber attacks, including DDoS, port scans, and flow table exhaustion. This approach allows the entire machine learning pipeline to be executed, tested, and verified locally without the need to download massive external packet captures. Once generated, these network flow logs are passed into src/features.py for the next stage of the pipeline. In the next stage, raw data is transformed into a structured feature matrix. In a later phase of the project, this synthetic generator will be replaced with the benchmark CICIDS2019 evaluation dataset to test the model's performance on real world attack traffic.
+
+### src/features.py
+
+This is the second program in my pipeline. It translates the logs, finds 8 mathematical clues, and groups them into bins. This program takes network traffic logs and organizes them such that a Machine Learning (ML) model can understand them. Instead of looking at raw text or random numbers, the program extracts eight specific details, or mathematical features. The features are consistent, measurable clues like how fast data is moving or how many packets are sent. By looking at the features together, the model can determine if a signature pattern is an attack or normal traffic. The program, for example, measures the speed of the traffic, and calculates ratios like packets-per-second, and evens out the numbers so short and long bursts of data can be compared. It also groups thousands of different connection points into a few organized categories, called bins. As an analogy, this is like sorting mail into specific cubbies based on where it needs to go. Finally, the program translates network languages, such as protocols like TCP and UDP, into simple code numbers. By doing this, the program acts as a translator, turning the complex network activity into a clean, uniform spreadsheet of numbers that the AI security model can easily read and identify cyber attacks.
+
+---
+
+## Local Training vs. Federated Aggregation
+
+The Federated Learning architecture splits the workload between individual local clients and a central coordinator.
+
+### config/fed_config.yaml
+
+Before any training begins, this configuration file acts as the master settings panel for the entire Federated Learning simulation. Instead of hardcoding values like the number of clients, training rounds, or aggregation strategy directly into the code, all of those parameters are stored here in a single, human-readable file. This makes the system highly flexible. A researcher can change the number of simulated clients or switch aggregation strategies simply by editing this file. It tells every other program in the pipeline how the federated system should behave.
+
+### src/local_train.py (The Client Side/trainer)
+
+This is the third program in my pipeline. It is used to train the AI model. This program takes the cleaned-up network clues and uses them to train an AI security model. The model is the Isolation Forest. In Federated Learning, it is directly installed on each individual user's computer. Instead of spending a lot of time studying what normal or safe traffic looks like, an Isolation Forest works like a detective. It hunts for unusual events. It isolates the rare and unusual outlier data and signals it as a cyber attack. Once the local training is finished, the program saves everything together into a neat package, called a bundle. This is merely a newly trained AI model, a data scaler that keeps all the numbers evenly balanced, and a set of local scoring stats used to judge how unusual future traffic might be. This local training process is important for cybersecurity because it protects user privacy. By teaching the AI model directly on the local machine, sensitive network logs never have to be sent over the internet or shared with an outside server.
+
+### src/federated.py (The Coordinator/Server Side)
+
+This fourth program in the pipeline acts as a central coordinator that brings together all of the individual AI security models trained in the previous step. It simulates a wholistic environment where multiple computers, or the clients, work together over several rounds to build a master AI security model. The server does not see the private network logs of the clients. To create this unified defense, the program takes the local AI models from all the clients and combines their intelligence using one of two strategies: Score Ensemble acts like a panel of experts averaging out their scores to see how unusual a piece of traffic looks, or Threshold Consensus acts like a democratic vote where the majority must agree before officially declaring the data as a cyber attack. This process is the core of Federated Learning. It creates a massive, network wide protection shield where every participant benefits from the collective knowledge of the entire group. They will be able to spot advanced threats like DDoS attacks together while keeping their own local data completely private and secure.
+
+### src/sanitizer.py (The Byzantine Guard)
+
+This program is Tool 2's core defense mechanism. Before the central coordinator in src/federated.py computes the global model, the sanitizer intercepts every client's submitted metric and screens it for signs of manipulation. It does this using Z-score filtering, a statistical technique that measures how far each submission deviates from the group average. A client whose anomaly score is dramatically higher or lower than its peers, such as a compromised host submitting inflated values to shift the global model's decision boundary, receives a Z-score that exceeds the configured threshold and is rejected before it can influence aggregation. The sanitizer produces a detailed report naming every accepted and rejected host, their submitted values, and their Z-scores. This makes the poisoning detection auditable and reproducible. Without this guard, a single poisoned client can corrupt the global model for every participant in the federated network.
+
+### sdn_mininet/poisoned_host.py (The Attacker)
+
+This program simulates the malicious insider that the sanitizer is designed to catch. It runs on host h6 inside the Mininet topology and submits deliberately falsified anomaly score metrics to the Ryu controller's federated learning REST endpoint. The falsification uses a configurable multiplier — set to 100 times the legitimate value by default — to produce a submission that is statistically extreme enough to shift the global model threshold if left undetected. Running this program alongside src/sanitizer.py creates a complete attack and defense demonstration where the poisoning attempt and its interception can be observed in the same experiment.
+
+---
+
+## Detection & Evaluation
+
+Once the global federated model is built, it needs to be put to work and its performance measured.
+
+### src/detect.py
+
+This fifth program is the production engine, which means it is the part of the project that actually goes to work protecting the network in real time. Once the master AI model is built by the team of computers, this program uses that collective intelligence to analyze live, new network traffic as it flows by. The program evaluates every connection and automatically tags the data with three specific labels: an anomaly score to measure exactly how suspicious the traffic behaves, an is_anomaly trigger which acts as a yes-or-no alarm button, and an anomaly rank to grade the threat's severity level from low to critical. Overall, this is where the AI stops practicing on fake data and starts to diagnose whether new live traffic is benign or a malignant cyber attack.
+
+### src/evaluate.py
+
+This sixth program acts as the final report card for the AI pipeline as a whole. It tests the master defense AI model to see how well it performs in the real world. To do this, it calculates standard data science metrics that grade the system's intelligence from different angles: Accuracy for overall correctness, Precision for how trustworthy its alarms are, Recall for its ability to catch every single threat, F1-Score for the balance between precision and recall, and AUC for its overall grading curve. It also shows visual aids including confusion matrices that display whether the AI got it right versus what it misdiagnosed, and performance bar charts. This evaluation shows if the AI is effective. High precision scores mean that the AI will not alert network administrators with false alarms, while a high recall score shows that the system will not miss malignant attacks.
+
+---
+
+## Human-in-the-Loop Security (Tool 4)
+
+Tool 4 sits between the detection pipeline and the SDN enforcement layer. Rather than blocking traffic automatically, it presents each flagged flow to a human operator with a plain-English explanation of why it is suspicious, and waits for that operator to decide what to do. Nothing is blocked without human approval.
+
+### src/hitl.py (The Alert Engine)
+
+This program is the core of Tool 4's human-centered design. It receives the raw anomaly scores produced by src/detect.py and converts them into structured Alert objects that a person can actually understand. Each alert carries a severity level (HIGH, MEDIUM, or LOW), a confidence percentage derived from how anomalous the flow ranks within its batch, the source and destination IP addresses and ports, and a breakdown of the top three features that deviated most from the learned baseline. The program also manages the AlertQueue, a thread-safe in-memory store that holds every alert waiting for operator review. When the operator makes a decision — Approve, Monitor, or Ignore — the queue records that decision along with a timestamp for the audit trail. This separation between detection and enforcement is the defining characteristic of a human-in-the-loop security system: the AI flags, the human decides.
+
+### src/explainer.py (The Explanation Engine)
+
+This program translates the raw statistical output of the Isolation Forest into language a network operator can act on. It works in two layers. The first layer runs four named attack pattern matchers against the flow's feature deviations: it checks whether the traffic matches the signature of a DDoS flood, a port scan, a flow table exhaustion attack, or a direct probe of the OpenFlow control plane. If a known pattern matches, the explanation names it specifically and describes the indicators that triggered it. If no pattern matches, the second layer falls back to describing the most anomalous features in plain English without guessing the attack type, because a wrong label is worse than an accurate description. The program also generates the operator recommendation, which presents three clearly labelled options — Approve to block, Monitor to watch, and Ignore to dismiss — with specific guidance tailored to the alert's severity, protocol, and destination port.
+
+### sdn_mininet/mitigator.py (The Enforcement Engine)
+
+This program executes the operator's decision once they click Approve in the dashboard. It installs a DROP flow rule on the target switch using one of two paths. The primary path sends the rule through the Ryu controller's REST API at port 8080, which is the correct way to interact with an SDN controller. If that endpoint is unavailable, a fallback path connects directly to the switch's passive OpenFlow listener at ptcp:6654 using the same raw socket technique as Tool 3's injector, but for a legitimate defensive purpose. Every Tool 4 rule carries the cookie 0xFEEDFACECAFE0004 at priority 30000, which distinguishes it from Tool 3's rogue rule (cookie 0xDEADBEEFCAFE0001 at priority 40000). Both rules can coexist on the switch simultaneously. The mitigator also supports a Throttle action, which installs a short-lived rule that expires after 60 seconds of idle traffic, and an Unblock action that surgically removes a previously installed Tool 4 rule. Every action is recorded in results/mitigator.log as a timestamped audit entry.
+
+### dashboard/app.py (The Flask Server)
+
+This program is the web server that connects the detection pipeline to the operator's browser. It runs on port 5000 and exposes a REST API with nine endpoints. A background scanner thread re-runs detect.py on the live flow CSV every 30 seconds and pushes any new anomalies into the AlertQueue automatically, so the dashboard stays current without the operator needing to do anything. When the operator submits a decision through the browser, the /api/decide endpoint records it and, if the decision is Approve, immediately calls mitigator.py to install the DROP rule. The response includes both the updated alert and the mitigation result, so the operator can see in real time whether the rule was successfully installed and which method was used to install it.
+
+### dashboard/templates/index.html (The Operator Dashboard)
+
+This is the browser-based interface the operator uses to review and respond to security alerts. It is a single-page application with a two-pane layout: the left pane shows a scrollable list of all alerts sorted newest first, color-coded by severity, and the right pane shows the full detail of whichever alert is selected. The detail view includes the flow's source and destination addresses, byte and packet counts, the detection pattern name, animated feature deviation bars that show how far each indicator strayed from the learned baseline, the full plain-English explanation, the three-option recommendation panel, and the Block, Monitor, and Ignore decision buttons. Two modal windows give the operator additional tools: the Verify Rules modal runs ovs-ofctl on the server and displays the raw flow table output with the Tool 3 and Tool 4 cookies highlighted in different colors, and the Mitigation Log modal shows the complete audit trail of every decision made during the session.
+
+### dashboard/static/dashboard.js (The Dashboard Logic)
+
+This program handles all of the interactive behavior inside the operator's browser. It polls the Flask server every five seconds to check for new alerts and refresh the display without requiring a page reload. It manages the complete decision flow from the moment an operator selects an alert through to displaying the mitigation result toast after they approve it. It also drives the animated feature deviation bars, the live severity sparkline chart drawn on a canvas element, new-alert notifications including page title flashing and optional Web Audio pings for HIGH-severity events, and a full set of keyboard shortcuts so the operator can navigate and decide without touching the mouse.
+
+### config/hitl_config.yaml (The Tool 4 Settings Panel)
+
+This configuration file is the equivalent of config/fed_config.yaml but for Tool 4. It stores every tunable parameter for the HITL pipeline in one human-readable place so that nothing needs to be hardcoded. It controls the minimum confidence threshold for creating an alert, how many alerts can be generated per scan batch, how often the background scanner runs, the OpenFlow priority and cookie for installed DROP rules, the idle timeout before rules self-expire, and the Z-score thresholds used by the pattern matchers in explainer.py. It also defines five named demonstration scenarios — ddos, port_scan, flowmod_inject, fte, and baseline — each specifying which data file to use, which host is the attacker, and whether to automatically verify the installed rules after mitigation. Running python3 cli.py demo-hitl --scenario ddos loads this file and runs the entire demonstration from a single command.
+
+---
+
+## SDN Integration with Network Emulation
+
+The core pipeline can run on synthetic data. The sdn_mininet/ module is used to bridge the gap between simulation and a real SDN environment by using Mininet and a Ryu controller.
+
+### sdn_mininet/topology.py
+
+This program builds a virtual, emulated network from scratch using Mininet, a network emulator. It constructs a realistic SDN topology with a controller, three switches, and seven hosts, then links these components together so they can communicate with each other. Each switch represents one federated client organization — s1 serves hosts h1, h2, and the Tool 3 attacker h7, s2 serves hosts h3 and h4, and s3 serves hosts h5 and h6. The program contains built-in traffic generators that simulate both normal user behavior and network attacks, including DDoS floods from h4 and port scans from h6. For Tool 3, the topology also configures a passive OpenFlow listener on switch s1 at port 6654 and starts an HTTP server on h2 at port 80, giving the injector a reachable control-plane entry point and a concrete application-layer target to block.
+
+### sdn_mininet/poisoned_host.py
+
+This program is an addition to Tool 1. It is added such that Tool 2 provides an attack. Host 6 runs this attack as an inside attacker. Instead of loading legitimate parameters from its locally trained model, h6 sends corrupted data, or metrics, to the Ryu controller. The simulated attack will need to be sanitized in order to defend against the attack. While this script produces an attack, the defense is set up in src/sanitizer.py and sdn_mininet/ryu_collector.py. After the Ryu controller, or ryu_collector.py, receives the data from the hosts, the data is passed to sanitizer.py where the metrics are inspected. If it is poisoned, the metrics are dropped and not added to the FL global model. The sanitized data is then sent to federated.py where it aggregates only verified clean uploads from the honest hosts.
+
+### sdn_mininet/ryu_collector.py
+
+This program runs as an application on top of the Ryu SDN controller, or the brain that manages the virtual network's switches. Its job is to act as a data recorder. As traffic flows across the Mininet topology, the Ryu controller continuously receives raw statistics from every switch in the network via the OpenFlow protocol. This program receives those statistics, organizes them into structured rows, and writes them to a CSV file. In short, it is the pipeline's real-time sensor, converting switch data into network flow logs. This is similar to my first phase where scripts/generate_data.py made data synthetically. After Tool 3 injects its DROP rule, the collector continues running normally, but the flow statistics it records for switch s1 will show HTTP traffic from h1 to h2 dropping to zero bytes, capturing the attacker's footprint in the dataset automatically. Tool 4 adds two new REST endpoints to this program: POST /hitl/alert accepts an anomaly description from an external script and queues it for the dashboard, and GET /hitl/status returns the current size of that queue and when the last alert arrived.
+
+### sdn_mininet/injector.py (The Control-Plane Attacker)
+
+This program is Tool 3's core attack component. While Tools 1 and 2 operate entirely within the machine learning pipeline, this program attacks the SDN network itself at the protocol layer. It operates in two phases. In Phase 1, it uses Scapy to passively sniff the loopback interface for OpenFlow traffic on TCP port 6633, decoding and printing every message header it observes. This demonstrates that the unencrypted control channel is fully readable by any local process, with no special privileges required beyond a raw socket. In Phase 2, it opens a direct TCP connection to the passive OVS listener on switch s1 at port 6654, completes a legitimate-looking OpenFlow 1.3 handshake, requests EQUAL controller role to bypass Ryu's MASTER lock, and sends a crafted OFPT_FLOW_MOD message. That message installs a permanent high-priority rule that drops all TCP port 80 traffic on s1 while leaving ICMP completely unaffected, so pings continue to succeed while HTTP fails. The Ryu controller never detects this rule.
+
+### sdn_mininet/mitigator.py
+
+See the Human-in-the-Loop Security section above. This program lives in the sdn_mininet/ folder because it communicates directly with the switch using OpenFlow, the same protocol layer as the injector. The distinction between Tool 3's injector and Tool 4's mitigator is visible in the flow table: both install DROP rules on s1, but the injector's rule carries cookie 0xDEADBEEFCAFE0001 at priority 40000 while the mitigator's rule carries cookie 0xFEEDFACECAFE0004 at priority 30000. One is an attack; the other is a human-approved defense.
+
+### sdn_mininet/label_window.py
+
+After a Mininet experiment finishes running, this program acts as a post-processing annotator. Because the traffic generator in topology.py knows when an attack started and stopped, this program takes the raw CSV of collected flows, reviews it, and stamps each time window with the correct label as either benign or the specific attack type that was active during that period. This labeled dataset is what gets forwarded to src/features.py for feature extraction. This finishes the bridge between live SDN emulation and the machine learning pipeline.
+
+---
+
+## Execution, Orchestration & Environment
+
+These files handle the user interface, automation, environment setup, and containerization of the project.
+
+### cli.py (root entry point)
+
+This seventh program serves as the main entry point and control center for the user. Instead of forcing you to look through folders and manually run five or six different programs one after the other, this script combines everything into a single, centralized dashboard called a Command-Line Interface (CLI). It allows you to run and manage the entire AI pipeline from your terminal using simple commands. For example, typing python3 cli.py train automatically wakes up the training programs, while using python3 cli.py detect activates the production engine to start scanning for cyber attacks. Tool 4 adds three new commands to this interface. The dashboard command launches the Flask web server and opens the browser-based operator dashboard. The hitl command runs a single detection scan and prints each alert to the terminal in a structured report, optionally prompting the operator to approve, monitor, or ignore each one without needing a browser. The demo-hitl command loads a named scenario from config/hitl_config.yaml and runs a fully guided demonstration of the HITL loop from detection through mitigation in a single command. It acts like a universal remote control, making the AI system easy to operate.
+
+### src/cli.py (argparse command routing)
+
+While the root cli.py serves as the entry point, this program inside the src/ package handles the detailed tasks behind every command. It uses Python's argparse library to define and validate each sub-command, such as generate, train, detect, and evaluate. It then routes the user's input to the correct module. The root cli.py is the front door and this file is the switchboard operator that ensures requests reach the right program with its arguments.
+
+### src/__init__.py
+
+This file declares the src/ folder as a Python package. Without it, Python would not recognize the folder as a collection of importable modules. In other words, programs like cli.py and federated.py could not reference each other. It holds the package together behind the scenes.
+
+### Makefile
+
+This eighth file acts as an automation shortcut. The sequence first invents the fake data, next translates it into clean mathematical clues, then trains the local AI guards, aggregates them into a consolidated federated model, and finally evaluates the system. Tool 4 adds ten new targets to the Makefile. The hitl and hitl-interactive targets run terminal-mode alert scans. The dashboard and dashboard-live targets launch the browser interface against either synthetic or live data. Five demo targets — demo-hitl, demo-scan, demo-inject, demo-fte, and demo-baseline — run the named scenarios from config/hitl_config.yaml. The verify target runs ovs-ofctl on s1 and filters the output for the Tool 4 cookie so the operator can confirm that a DROP rule is live on the switch. In short, it is a script that handles all the heavy lifting, allowing you to test, run, and verify the entire cybersecurity system without entering any commands.
+
+### install.sh
+
+This shell script is a one-time setup assistant designed specifically for Ubuntu 20.04 VMs. When run on a fresh system, it automatically installs all of the necessary system-level software dependencies, such as Python, Mininet, and the Ryu controller. Pip or conda cannot install these on their own. It prepares the host machine's operating system before any Python environment is created. It also installs scapy system-wide using sudo pip3 so that Tool 3's injector can open raw sockets, which require root-level package access.
+
+### requirements.txt
+
+This standard Python file lists every third party library the project depends on, along with the required versions. When setting up the project in a plain Python virtual environment, running pip install -r requirements.txt reads this list and automatically downloads and installs every dependency in one step. It guarantees that running the project uses the same library versions. Tool 3 adds scapy==2.5.0 to this file, pinned to that specific version to avoid compatibility errors with Python 3.8's cryptography library on Ubuntu 20.04. Tool 4 adds flask and flask-cors so the operator dashboard can be served from the same machine running the Ryu controller without any additional setup.
+
+### environment.yml
+
+This file serves the same purpose as requirements.txt but for users who prefer Conda as their package manager. Running conda env create -f environment.yml builds a fully isolated Conda environment with all the correct dependencies pre-configured. It is particularly useful for researchers and data scientists who rely on Conda to manage complex scientific computing environments.
+
+### Dockerfile
+
+This file contains the instructions for packaging the entire project into a self-contained Docker image. It tells Docker exactly how to build the environment, which base operating system to use, which packages to install, and which files to copy in, so the project can run identically on any machine. Note that Tool 3's injector cannot run inside Docker because it requires a live Open vSwitch instance and raw socket access to the host network, neither of which are available inside a container. Tool 3 requires Ubuntu 20.04 natively. The Tool 4 dashboard and offline HITL pipeline can run inside Docker for demonstration purposes since they do not require Mininet or raw sockets.
+
+### docker-compose.yml
+
+This file orchestrates multi-container deployments of the project. Rather than starting Docker containers one by one with individual commands, docker-compose.yml defines all the services the project needs, such as the training client and the federated coordinator. It then launches them together with a single docker compose up command. It also handles the networking between containers, making it straightforward to simulate multiple federated clients running simultaneously on one machine.
+
+### .dockerignore
+
+This configuration file tells Docker which files and folders to exclude when building the image, such as the data/, models/, and results/ directories that are generated at runtime. By excluding these files, the Docker image remains robust.
+
+### .gitignore
+
+This file tells Git which files and folders to leave out of version control. For this project, it excludes the three generated runtime directories, data/, models/, and results/. Their contents are re-creatable by simply running the pipeline and would increase the repository unnecessarily. It also excludes Python cache folders, compiled bytecode files, and local environment folders created by pip or Conda.
+
+---
+
+## Generated Data Directories
+
+These three folders are not committed to the repository and are created automatically when the pipeline runs.
+
+### data/
+
+This folder is the pipeline's working scratchpad. It stores the synthetic network flow logs produced by scripts/generate_data.py, or the real flow logs captured by sdn_mininet/ryu_collector.py. It also stores the labeled and feature-extracted datasets produced by downstream stages. The data is re-generatable, so it is listed in .gitignore.
+
+### models/
+
+After each round of local or federated training, the trained model bundles, including the Isolation Forest model, the data scaler, and the local scoring statistics are saved here. This allows the detection engine in src/detect.py to load a pre-trained model without needing to re-run the full training pipeline. Like the data/ folder, it is git-ignored since models can be reproduced.
+
+### results/
+
+This folder collects and stores all outputs produced by src/evaluate.py, which includes the confusion matrix images, performance bar charts, any saved metric reports, and the per-round sanitizer audit log written by Tool 2's simulation. Tool 4 adds two additional files to this folder: mitigator.log records every Block, Monitor, and Ignore decision the operator makes along with the timestamp, source IP, destination port, and the method used to install the rule, and hitl_audit.log records every detection scan event and how many alerts were generated.
+
+---
+
+## Documentation
+
+### README.md
+
+The documentation guide containing setup instructions, system design overviews, architecture diagrams, evaluation metrics, and a complete API reference for all four tools to ensure the project is reproducible and working correctly.
+
+---
+
 ## Limitations and known issues
 
 **Mininet requires native Ubuntu.** The live traffic collection mode does not
