@@ -1,6 +1,7 @@
 <p align="center">
-  <img src="docs/netocto.jpg" width="350">
-  <img src="docs/masked.jpg" width="350">
+  <img src="docs/fight.jpg" width="300"
+  <img src="docs/netocto.jpg" width="300">
+  <img src="docs/masked.jpg" width="300">
 </p>
 
 
