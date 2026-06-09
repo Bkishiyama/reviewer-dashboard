@@ -1,7 +1,7 @@
 <p align="center">
-  <img src="docs/netocto.jpg" width="300">
-  <img src="docs/fight.jpg" width="300">
-  <img src="docs/masked.jpg" width="300">
+  <img src="docs/netocto.jpg" style="height:300px; width:auto">
+  <img src="docs/fight.jpg" style="height:300px; width=auto">
+  <img src="docs/masked.jpg" style="height:300px; width=auto">
 </p>
 
 
