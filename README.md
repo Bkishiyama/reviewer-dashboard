@@ -85,14 +85,13 @@ The project runs on **Ubuntu 20.04** with **Python 3.10**, **Mininet 2.3.1b4**, 
 │   └── test_sanitizer.py         # Tool 2 unit tests
 └── docs/                         # Architecture diagrams (.drawio.svg)
 ```
-created with GitHub MCV  
+GitHub MCV assisted  
 
 ---
 
 ## Network topology
 
 ![Architecture Diagram](docs/sdn_fl_T4.svg)
-
 draw.io assisted
 
 ---
