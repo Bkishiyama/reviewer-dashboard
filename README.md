@@ -318,26 +318,9 @@ or ignore. No traffic is ever blocked automatically.
 
 ### Architecture
 
-```
-ryu_collector.py ──► live_client*.csv ──► detect.py
-                                               │
-                                           hitl.py
-                                        (AlertQueue)
-                                               │
-                                       explainer.py
-                              (explanation + recommendation)
-                                               │
-                                      dashboard/app.py
-                                       (Flask :5000)
-                                               │
-                                   Operator browser UI
-                                               │  (approve)
-                                       mitigator.py
-                                               │
-                         Ryu REST API (:8080) ──► OFPFlowMod DROP
-                                          cookie=0xFEEDFACECAFE0004
-                                                 priority=30000
-```
+![Architecture Diagram](docs/sdnflT4v2.svg)
+
+---
 
 ### New files (Tool 4)
 
