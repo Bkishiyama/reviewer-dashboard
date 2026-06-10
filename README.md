@@ -318,7 +318,7 @@ or ignore. No traffic is ever blocked automatically.
 
 ### Architecture
 
-![Architecture Diagram](docs/sdnflt4v2.svg)
+![Architecture Diagram](docs/sdnflt4v3.svg)
 
 ---
 
