@@ -321,7 +321,8 @@ or ignore. No traffic is ever blocked automatically.
 ### Architecture
 
 ![Architecture Diagram](docs/sdnflt4v5.svg)
-assisted with Eraser AI @ https://www.eraser.io/ai
+
+assisted by Eraser AI @ https://www.eraser.io/ai
 
 ---
 
