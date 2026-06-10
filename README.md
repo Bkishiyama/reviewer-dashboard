@@ -5,7 +5,7 @@
 </p>
 
 
-# SDN Federated Anomaly Detection — Human-in-the-Loop Security
+# SDN FL Anomaly Detector: Human-in-the-Loop (HITL) Security
 
 A four-tool security system for Software-Defined Networks that combines
 federated machine learning, poisoning defense, control-plane attack simulation,
@@ -85,6 +85,7 @@ The project runs on **Ubuntu 20.04** with **Python 3.10**, **Mininet 2.3.1b4**, 
 │   └── test_sanitizer.py         # Tool 2 unit tests
 └── docs/                         # Architecture diagrams (.drawio.svg)
 ```
+created with GitHub MCV  
 
 ---
 
