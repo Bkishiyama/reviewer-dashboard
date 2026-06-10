@@ -15,14 +15,14 @@ and human-centered threat response.
 
 ## Table of contents
 
-1. [Project overview](#project-overview)
-2. [Repository structure](#repository-structure)
-3. [Network topology](#network-topology)
+1. [Project Overview](#project-overview)
+2. [Repository Structure](#repository-structure)
+3. [Network Topology](#network-topology)
 4. [Installation](#installation)
-5. [Tool 1 — Federated anomaly detection](#tool-1--federated-anomaly-detection)
-6. [Tool 2 — Byzantine-robust poisoning defense](#tool-2--byzantine-robust-poisoning-defense)
-7. [Tool 3 — OpenFlow FlowMod injection](#tool-3--openflow-flowmod-injection)
-8. [Tool 4 — Human-in-the-Loop security dashboard](#tool-4--human-in-the-loop-security-dashboard)
+5. [Tool 1: Federated Anomaly Detection](#tool-1--federated-anomaly-detection)
+6. [Tool 2: Byzantine-robust Poisoning Defense](#tool-2--byzantine-robust-poisoning-defense)
+7. [Tool 3: OpenFlow FlowMod Injection](#tool-3--openflow-flowmod-injection)
+8. [Tool 4: Human-in-the-Loop Security Dashboard](#tool-4--human-in-the-loop-security-dashboard)
 9. [Full pipeline reference](#full-pipeline-reference)
 10. [Makefile targets](#makefile-targets)
 11. [Configuration](#configuration)
@@ -31,7 +31,7 @@ and human-centered threat response.
 
 ---
 
-## Project overview
+## Project Overview
 
 | Tool | What it does | Key files |
 |------|-------------|-----------|
@@ -44,7 +44,7 @@ The project runs on **Ubuntu 20.04** with **Python 3.10**, **Mininet 2.3.1b4**, 
 
 ---
 
-## Repository structure
+## Repository Structure
 
 ```
 .
@@ -89,7 +89,7 @@ GitHub MCV assisted
 
 ---
 
-## Network topology
+## Network Topology
 
 ![Architecture Diagram](docs/sdn_fl_T4.svg)
 draw.io assisted
@@ -152,7 +152,7 @@ python3 -c "import sklearn, flask, scapy; print('All OK')"
 
 ---
 
-## Tool 1: Federated anomaly detection
+## Tool 1: Federated Anomaly Detection
 
 Tool 1 trains an Isolation Forest on each switch's flow data independently,
 then federates the models into a single global anomaly detector without sharing
@@ -222,7 +222,7 @@ scores below the consensus threshold are flagged as anomalous.
 
 ---
 
-## Tool 2: Byzantine-robust poisoning defense
+## Tool 2: Byzantine-robust Poisoning Defense
 
 Tool 2 defends the federated aggregation step against model poisoning attacks.
 A compromised host (h6) uploads a grossly inflated metric designed to push the
@@ -271,7 +271,7 @@ and via the `Z_THRESHOLD` environment variable.
 
 ---
 
-## Tool 3: OpenFlow FlowMod injection
+## Tool 3: OpenFlow FlowMod Injection
 
 Tool 3 demonstrates that an adversary with access to the host machine can
 observe the unencrypted OpenFlow control channel and inject malicious flow
@@ -326,7 +326,7 @@ assisted by Eraser AI @ https://www.eraser.io/ai
 
 ---
 
-### New files (Tool 4)
+### Tool 4
 
 | File | Purpose |
 |------|---------|
@@ -338,7 +338,7 @@ assisted by Eraser AI @ https://www.eraser.io/ai
 | `dashboard/static/dashboard.js` | Live polling, decision flow, keyboard shortcuts |
 | `config/hitl_config.yaml` | All Tool 4 thresholds, mitigation params, demo scenarios |
 
-### Quick start (offline or no Mininet)
+### Quick start (offline or no Mininet needed)
 
 ```bash
 # Build the model first if you have not already
@@ -393,7 +393,7 @@ cookie=0xfeedfacecafe0004  priority=30000  actions=drop   ← Tool 4 defensive
 cookie=0xdeadbeefcafe0001  priority=40000  actions=drop   ← Tool 3 rogue
 ```
 
-### Explainable alerts
+### Alerts Explained
 
 Every alert includes:
 
@@ -491,7 +491,7 @@ python3 cli.py dashboard --model models/global.pkl --data data/live_client1.csv
 watch -n 5 wc -l data/live_client*.csv
 ```
 
-### Offline pipeline (no VM)
+### Offline pipeline (no VMs)
 
 ```bash
 make all  # data → train → aggregate → detect → evaluate
