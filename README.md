@@ -92,6 +92,7 @@ The project runs on **Ubuntu 20.04** with **Python 3.10**, **Mininet 2.3.1b4**, 
 
 ![Architecture Diagram](docs/sdn_fl_T4.svg)
 
+---
 
 | Host | Role | Switch | IP |
 |------|------|--------|----|
