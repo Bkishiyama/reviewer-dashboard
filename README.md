@@ -152,7 +152,7 @@ python3 -c "import sklearn, flask, scapy; print('All OK')"
 
 ---
 
-## Tool 1 — Federated anomaly detection
+## Tool 1: Federated anomaly detection
 
 Tool 1 trains an Isolation Forest on each switch's flow data independently,
 then federates the models into a single global anomaly detector without sharing
@@ -193,13 +193,13 @@ make all
 ### Live Mininet mode
 
 ```bash
-# Terminal 1 — Ryu controller
+# Terminal 1: Ryu controller
 ryu-manager sdn_mininet/ryu_collector.py --observe-links
 
-# Terminal 2 — Mininet topology (benign traffic only)
+# Terminal 2: Mininet topology (benign traffic only)
 sudo python3 sdn_mininet/topology.py --time 120
 
-# Terminal 3 — watch CSVs grow
+# Terminal 3: watch CSVs grow
 watch -n 5 wc -l data/live_client*.csv
 
 # After collection — train on live data
@@ -222,7 +222,7 @@ scores below the consensus threshold are flagged as anomalous.
 
 ---
 
-## Tool 2 — Byzantine-robust poisoning defense
+## Tool 2: Byzantine-robust poisoning defense
 
 Tool 2 defends the federated aggregation step against model poisoning attacks.
 A compromised host (h6) uploads a grossly inflated metric designed to push the
@@ -232,17 +232,17 @@ and removes the outlier before aggregation.
 ### Run the poisoning demo
 
 ```bash
-# Terminal 1 — Ryu controller
+# Terminal 1: Ryu controller
 ryu-manager sdn_mininet/ryu_collector.py --observe-links
 
-# Terminal 2 — Mininet topology
+# Terminal 2: Mininet topology
 sudo python3 sdn_mininet/topology.py --time 120 --attack
 
-# Terminal 3 — legitimate clients upload healthy metrics
+# Terminal 3: legitimate clients upload healthy metrics
 python3 sdn_mininet/poisoned_host.py --host h1 --no-poison --controller-ip 127.0.0.1
 python3 sdn_mininet/poisoned_host.py --host h2 --no-poison --controller-ip 127.0.0.1
 
-# Terminal 4 — attacker uploads poisoned metric (100× multiplier)
+# Terminal 4: attacker uploads poisoned metric (100× multiplier)
 python3 sdn_mininet/poisoned_host.py --host h6 --multiplier 100 --controller-ip 127.0.0.1
 
 # Trigger aggregation — watch sanitizer reject h6
@@ -271,7 +271,7 @@ and via the `Z_THRESHOLD` environment variable.
 
 ---
 
-## Tool 3 — OpenFlow FlowMod injection
+## Tool 3: OpenFlow FlowMod injection
 
 Tool 3 demonstrates that an adversary with access to the host machine can
 observe the unencrypted OpenFlow control channel and inject malicious flow
@@ -279,11 +279,11 @@ rules directly into a switch — bypassing the Ryu controller entirely.
 
 ### How the attack works
 
-**Phase 1 — Passive sniff:** `injector.py` listens on the loopback interface
+**Phase 1: Passive sniff:** `injector.py` listens on the loopback interface
 for OpenFlow traffic on port 6633. When the Ryu controller sends a message to
 s1, the sniffer fires.
 
-**Phase 2 — FlowMod injection:** The injector connects directly to s1's passive
+**Phase 2: FlowMod injection:** The injector connects directly to s1's passive
 OVS listener (`ptcp:6654`), performs an OpenFlow 1.3 handshake, requests
 `EQUAL` role, and sends a crafted `OFPFlowMod` that drops all TCP traffic
 destined for port 80 with priority 40000.
@@ -294,13 +294,13 @@ matched, so `h1 ping h2` continues to succeed while `h1 curl h2` times out.
 ### Run the attack
 
 ```bash
-# Terminal 1 — Ryu controller
+# Terminal 1: Ryu controller
 ryu-manager sdn_mininet/ryu_collector.py --observe-links
 
-# Terminal 2 — Mininet topology with injection
+# Terminal 2: Mininet topology with injection
 sudo python3 sdn_mininet/topology.py --time 120 --inject
 
-# Terminal 3 — verify in Mininet CLI
+# Terminal 3: verify in Mininet CLI
 mininet> h1 curl --max-time 3 http://10.0.0.2/   # times out (injected)
 mininet> h1 ping -c 3 10.0.0.2                   # succeeds (evasion)
 mininet> sh ovs-ofctl dump-flows s1 -O OpenFlow13 # shows rogue rule
@@ -311,7 +311,7 @@ visible in `ovs-ofctl dump-flows`.
 
 ---
 
-## Tool 4 — Human-in-the-Loop security dashboard
+## Tool 4: Human-in-the-Loop security dashboard
 
 Tool 4 is the human-centered security layer. It detects anomalous flows,
 explains **why** each flow was flagged, presents the operator with a clear
@@ -338,7 +338,7 @@ assisted by Eraser AI @ https://www.eraser.io/ai
 | `dashboard/static/dashboard.js` | Live polling, decision flow, keyboard shortcuts |
 | `config/hitl_config.yaml` | All Tool 4 thresholds, mitigation params, demo scenarios |
 
-### Quick start (offline — no Mininet)
+### Quick start (offline or no Mininet)
 
 ```bash
 # Build the model first if you have not already
@@ -361,7 +361,7 @@ ryu-manager sdn_mininet/ryu_collector.py --observe-links
 # Terminal 2
 sudo python3 sdn_mininet/topology.py --time 120 --attack
 
-# Terminal 3 — dashboard reads live CSV, auto-scans every 30 s
+# Terminal 3 dashboard reads live CSV, auto-scans every 30 s
 python3 cli.py dashboard --model models/global.pkl --data data/live_client1.csv
 ```
 
@@ -378,11 +378,11 @@ python3 cli.py hitl --model models/global.pkl --data data/new_flows.csv --auto-b
 ### Demo scenarios
 
 ```bash
-make demo-hitl    # DDoS from h4 (live_client2.csv)
-make demo-scan    # Port scan from h6 (live_client3.csv)
+make demo-hitl  # DDoS from h4 (live_client2.csv)
+make demo-scan  # Port scan from h6 (live_client3.csv)
 make demo-inject  # FlowMod injection from h7 — shows both cookies side by side
-make demo-fte     # Flow table exhaustion
-make demo-baseline # Clean traffic — no alerts expected
+make demo-fte  # Flow table exhaustion
+make demo-baseline  # Clean traffic — no alerts expected
 ```
 
 The `demo-inject` scenario automatically runs `ovs-ofctl dump-flows s1` after
@@ -397,13 +397,13 @@ cookie=0xdeadbeefcafe0001  priority=40000  actions=drop   ← Tool 3 rogue
 
 Every alert includes:
 
-- **Severity** — HIGH / MEDIUM / LOW based on anomaly rank percentile
-- **Confidence** — how anomalous this flow is relative to the batch
-- **Detection pattern** — named attack type (DDoS, port scan, flow table
+- **Severity** -> HIGH / MEDIUM / LOW based on anomaly rank percentile
+- **Confidence** -> how anomalous this flow is relative to the batch
+- **Detection pattern** -> named attack type (DDoS, port scan, flow table
   exhaustion, control-plane probe) or plain-language feature description
-- **Feature breakdown** — the top 3 most anomalous features with Z-scores and
+- **Feature breakdown** -> the top 3 most anomalous features with Z-scores and
   observed-vs-baseline comparison
-- **Recommendation** — three labelled options (Approve/Block, Monitor, Ignore)
+- **Recommendation** -> three labelled options (Approve/Block, Monitor, Ignore)
   with specific guidance based on severity, protocol, and destination port
 
 ### REST API (port 5000)
@@ -421,7 +421,7 @@ Every alert includes:
 | `POST` | `/api/scan` | Trigger immediate detection scan |
 | `GET` | `/api/health` | Server health and uptime |
 
-Example — approve an alert and trigger mitigation:
+Example: approve an alert and trigger mitigation:
 
 ```bash
 curl -X POST http://localhost:5000/api/decide \
@@ -475,7 +475,7 @@ curl -X POST http://localhost:5000/api/mitigation/unblock \
 ### All tools, live Mininet
 
 ```bash
-# Setup — run once
+# Setup (run once)
 chmod +x install.sh && ./install.sh
 
 # Terminal 1: Ryu controller (Tools 1, 2, 4)
@@ -494,9 +494,9 @@ watch -n 5 wc -l data/live_client*.csv
 ### Offline pipeline (no VM)
 
 ```bash
-make all          # data → train → aggregate → detect → evaluate
-make hitl         # Tool 4 terminal scan
-make dashboard    # Tool 4 browser dashboard
+make all  # data → train → aggregate → detect → evaluate
+make hitl  # Tool 4 terminal scan
+make dashboard  # Tool 4 browser dashboard
 ```
 
 ---
