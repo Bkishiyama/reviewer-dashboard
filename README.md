@@ -93,6 +93,8 @@ created with GitHub MCV
 
 ![Architecture Diagram](docs/sdn_fl_T4.svg)
 
+draw.io assisted
+
 ---
 
 | Host | Role | Switch | IP |
