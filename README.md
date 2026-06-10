@@ -318,9 +318,9 @@ or ignore. No traffic is ever blocked automatically.
 
 ### Architecture
 
-![Architecture Diagram](docs/sdnflt4v4.svg)
+![Architecture Diagram](docs/sdnflt4v5.svg)
 
-made with free version of Eraser AI @ https://www.eraser.io/ai
+I made this with the free version of Eraser AI @ https://www.eraser.io/ai
 
 ---
 
