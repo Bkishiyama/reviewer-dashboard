@@ -90,23 +90,8 @@ The project runs on **Ubuntu 20.04** with **Python 3.10**, **Mininet 2.3.1b4**, 
 
 ## Network topology
 
-```
-          Ryu Controller (port 6633)
-                   |
-        ┌──────────┴──────────┐
-        s1 (dpid=1)           |
-       /  \                   |
-     h1    h2 ←── HTTP :80    |
-     h7 (Tool 3 injector)     |
-        |                     |
-        s2 (dpid=2)           |
-       /  \                   |
-     h3    h4 ←── DDoS (hping3)
-        |
-        s3 (dpid=3)
-       /  \
-     h5    h6 ←── Port scan (nmap) / FL poisoner
-```
+![Architecture Diagram](docs/sdn-fl-T4.drawio.svg)
+
 
 | Host | Role | Switch | IP |
 |------|------|--------|----|
