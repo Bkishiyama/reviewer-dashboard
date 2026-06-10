@@ -320,7 +320,7 @@ or ignore. No traffic is ever blocked automatically.
 
 ![Architecture Diagram](docs/sdnflt4v5.svg)
 
-I made this with the free version of Eraser AI @ https://www.eraser.io/ai
+Diagram drawing assisted with Eraser AI @ https://www.eraser.io/ai
 
 ---
 
