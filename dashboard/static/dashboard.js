@@ -1,25 +1,21 @@
-/**
- * dashboard/static/dashboard.js  —  Tool 4 HITL Dashboard Logic
- *
- * This file is the standalone JS module loaded by dashboard/templates/index.html.
+/** dashboard/static/dashboard.js
+ * Tool 4 HITL Dashboard Logic
+ * This file is loaded by dashboard/templates/index.html.
  * It owns all client-side state, API communication, DOM rendering, and UX
  * behaviour for the operator dashboard.
- *
  * Responsibilities (split from what index.html does inline):
  *   1.  State management  — single source of truth for all alerts + UI state
- *   2.  API layer         — typed fetch wrappers for every app.py endpoint
+ *   2.  API layer — typed fetch wrappers for every app.py endpoint
  *   3.  Alert list render — virtualized-style diff to avoid full redraws
- *   4.  Detail panel      — full alert detail with animated feature bars
- *   5.  Decision flow     — approve / monitor / ignore with mitigation feedback
- *   6.  Live chart        — rolling severity histogram (last 60 scans)
- *   7.  Notifications     — new-alert badge flashing + optional audio ping
- *   8.  Keyboard nav      — j/k to move, a/m/i to decide, r to refresh
- *   9.  Unblock form      — manual rule removal without going to the CLI
- *  10.  Export            — download current alert list as CSV
- *
+ *   4.  Detail panel — full alert detail with animated feature bars
+ *   5.  Decision flow — approve/monitor/ignore with mitigation feedback
+ *   6.  Live chart — rolling severity histogram (last 60 scans)
+ *   7.  Notifications — new-alert badge flashing + optional audio ping
+ *   8.  Keyboard nav — j/k to move, a/m/i to decide, r to refresh
+ *   9.  Unblock form — manual rule removal without going to the CLI
+ *  10.  Export — download current alert list as CSV
  * All DOM IDs referenced here match index.html exactly.
  * No external libraries — plain ES2020, works in any modern browser.
- *
  * Usage:
  *   index.html loads this file last, after the DOM is fully parsed:
  *     <script src="/static/dashboard.js" defer></script>
@@ -27,51 +23,39 @@
 
 'use strict';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 1. CONFIG
-// ─────────────────────────────────────────────────────────────────────────────
-
+// 1. Config
 const CFG = {
-  apiBase:        '',          // same-origin; override to 'http://localhost:5000' if needed
-  pollInterval:   5_000,       // ms between background refreshes
-  chartMaxPoints: 60,          // rolling window for severity chart
-  animBarDelay:   30,          // ms stagger between feature bar animations
-  toastDuration:  6_000,       // ms before mitigation toast fades
-  audioEnabled:   false,       // toggled by operator via 🔔 button
-  newAlertSound:  440,         // Hz for Web Audio ping on new HIGH alerts
+  apiBase:        '',  // same-origin; override to 'http://localhost:5000' if needed
+  pollInterval:   5_000,  // ms between background refreshes
+  chartMaxPoints: 60,  // rolling window for severity chart
+  animBarDelay:   30,  // ms stagger between feature bar animations
+  toastDuration:  6_000,  // ms before mitigation toast fades
+  audioEnabled:   false,  // toggled by operator via bell button
+  newAlertSound:  440,  // Hz for Web Audio ping on new HIGH alerts
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 2. STATE
-// ─────────────────────────────────────────────────────────────────────────────
-
+// 2. State
 const State = {
-  alerts:         [],          // full list from /api/alerts, newest first
-  currentId:      null,        // alert_id currently shown in detail panel
-  tab:            'all',       // 'all' | 'pending' | 'resolved'
-  seenIds:        new Set(),   // alert_ids we've rendered before (for new-alert detection)
-  pollTimer:      null,
-  chartData:      { high: [], medium: [], low: [], labels: [] },
-  audioCtx:       null,        // lazily created AudioContext
-  unblockOpen:    false,
+  alerts: [],  // full list from /api/alerts, newest first
+  currentId: null,  // alert_id currently shown in detail panel
+  tab: 'all',  // 'all' | 'pending' | 'resolved'
+  seenIds: new Set(),  // alert_ids rendered before - for new-alert detection
+  pollTimer: null,
+  chartData: { high: [], medium: [], low: [], labels: [] },
+  audioCtx: null, // lazily created AudioContext
+  unblockOpen: false,
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 3. DOM SHORTCUTS
-// ─────────────────────────────────────────────────────────────────────────────
-
+// 3. DOM shortcuts
 const $ = id => document.getElementById(id);
 
-// Safe innerText setter — escapes HTML entities
+// Safe innerText setter, escapes HTML entities
 function setText(id, val) {
   const el = $(id);
   if (el) el.textContent = val ?? '—';
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 4. FORMATTING HELPERS
-// ─────────────────────────────────────────────────────────────────────────────
-
+// 4. Formatting helpers
 function fmtBytes(n) {
   n = Number(n) || 0;
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(2) + ' MB';
@@ -110,10 +94,7 @@ function extractPattern(explanation) {
   return m ? m[1].trim() : 'Anomaly detected';
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 5. SEVERITY / COLOUR HELPERS
-// ─────────────────────────────────────────────────────────────────────────────
-
+// 5. Severity / add colors
 const SEV_COLORS = {
   high:   { fg: '#ef4444', bg: '#2d1414', border: '#ef4444' },
   medium: { fg: '#f59e0b', bg: '#2d2008', border: '#f59e0b' },
@@ -147,10 +128,7 @@ function pillStyle(decision) {
   return m[decision] || m.pending;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 6. API LAYER
-// ─────────────────────────────────────────────────────────────────────────────
-
+// 6. API layer
 async function apiFetch(path, opts = {}) {
   const url = CFG.apiBase + path;
   const r   = await fetch(url, {
@@ -176,10 +154,7 @@ const API = {
   unblock:     body        => apiFetch('/api/mitigation/unblock', { method: 'POST', body: JSON.stringify(body) }),
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
 // 7. POLLING LOOP
-// ─────────────────────────────────────────────────────────────────────────────
-
 async function pollAll() {
   await Promise.allSettled([refreshHealth(), refreshAlerts()]);
 }
@@ -232,9 +207,7 @@ async function refreshAlerts() {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 8. ALERT LIST RENDER
-// ─────────────────────────────────────────────────────────────────────────────
+// 8. Alert list render
 
 function filteredAlerts() {
   if (State.tab === 'pending')  return State.alerts.filter(a => a.decision === 'pending');
@@ -313,10 +286,7 @@ function updateTabCounts(pendingCount) {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 9. DETAIL PANEL
-// ─────────────────────────────────────────────────────────────────────────────
-
+// 9. Detail Panel
 async function selectAlert(id) {
   State.currentId = id;
 
@@ -342,8 +312,8 @@ function showDetailPanel(visible) {
   view.className = visible ? 'detail-view visible' : 'detail-view';
 }
 
+  // Header
 function renderDetail(a) {
-  // ── Header ──────────────────────────────────────────────────────────────
   const chip = $('d-sev-chip');
   if (chip) {
     chip.textContent = a.severity.toUpperCase();
@@ -361,35 +331,35 @@ function renderDetail(a) {
     cNum.textContent       = a.confidence_pct.toFixed(0) + '%';
   }
 
-  // ── Flow fields ──────────────────────────────────────────────────────────
-  setText('d-src',      `${a.src_ip}:${a.src_port}`);
-  setText('d-dst',      `${a.dst_ip}:${a.dst_port}`);
-  setText('d-proto',    (a.protocol || '—').toUpperCase());
-  setText('d-dpid',     a.dpid ? `s${a.dpid}  (dpid=${a.dpid})` : '—');
-  setText('d-bytes',    `${fmtBytes(a.bytes)}  (${fmtNum(a.bytes)} bytes)`);
-  setText('d-packets',  fmtNum(a.packets));
+  // Flow fields
+  setText('d-src', `${a.src_ip}:${a.src_port}`);
+  setText('d-dst', `${a.dst_ip}:${a.dst_port}`);
+  setText('d-proto', (a.protocol || '—').toUpperCase());
+  setText('d-dpid', a.dpid ? `s${a.dpid}  (dpid=${a.dpid})` : '—');
+  setText('d-bytes', `${fmtBytes(a.bytes)}  (${fmtNum(a.bytes)} bytes)`);
+  setText('d-packets', fmtNum(a.packets));
   setText('d-duration', `${Number(a.duration).toFixed(4)} s`);
-  setText('d-score',    fmtScore(a.anomaly_score));
-  setText('d-rank',     `#${a.anomaly_rank} of ${a.batch_size}`);
-  setText('d-time',     a.created_at_str || '—');
+  setText('d-score', fmtScore(a.anomaly_score));
+  setText('d-rank', `#${a.anomaly_rank} of ${a.batch_size}`);
+  setText('d-time', a.created_at_str || '—');
 
   // Alert ID in detail header (if element exists)
   setText('d-alert-id', `Alert #${a.alert_id}`);
 
-  // ── Feature deviations ───────────────────────────────────────────────────
+  // Feature deviations
   renderDeviations(a.top_deviations || []);
 
-  // ── Explanation ──────────────────────────────────────────────────────────
+  // Explanation
   const exEl = $('d-explanation');
   if (exEl) exEl.textContent = a.explanation || '—';
 
-  // ── Recommendation ───────────────────────────────────────────────────────
+  // Recommendation
   renderRecommendation(a.recommendation || '');
 
-  // ── Decision bar ─────────────────────────────────────────────────────────
+  // Decision bar
   renderDecisionBar(a);
 
-  // ── Unblock button (only show if this alert has been approved) ───────────
+  //Unblock button (only show if this alert has been approved)
   const ubBtn = $('btn-unblock');
   if (ubBtn) {
     ubBtn.style.display = a.decision === 'approved' ? 'inline-flex' : 'none';
@@ -475,10 +445,7 @@ function renderDecisionBar(a) {
   });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 10. DECISION SUBMISSION
-// ─────────────────────────────────────────────────────────────────────────────
-
+// 10. Decision Submission
 async function decide(decision) {
   if (!State.currentId) return;
 
@@ -554,27 +521,21 @@ function hideMitToast() {
   clearTimeout(toast._timer);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 11. STATS BAR
-// ─────────────────────────────────────────────────────────────────────────────
-
+// 11. Stats Bar
 function renderStats() {
   const a = State.alerts;
-  setText('s-total',    a.length);
-  setText('s-pending',  a.filter(x => x.decision === 'pending').length);
+  setText('s-total', a.length);
+  setText('s-pending', a.filter(x => x.decision === 'pending').length);
   setText('s-approved', a.filter(x => x.decision === 'approved').length);
-  setText('s-monitor',  a.filter(x => x.decision === 'monitor').length);
-  setText('s-ignored',  a.filter(x => x.decision === 'ignored').length);
+  setText('s-monitor', a.filter(x => x.decision === 'monitor').length);
+  setText('s-ignored', a.filter(x => x.decision === 'ignored').length);
 
   setText('count-high', a.filter(x => x.severity === 'high').length);
-  setText('count-med',  a.filter(x => x.severity === 'medium').length);
-  setText('count-low',  a.filter(x => x.severity === 'low').length);
+  setText('count-med', a.filter(x => x.severity === 'medium').length);
+  setText('count-low', a.filter(x => x.severity === 'low').length);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 12. LIVE SEVERITY CHART (canvas sparkline, no library)
-// ─────────────────────────────────────────────────────────────────────────────
-
+// 12. Sevirity Chart (canvas sparkline, no library)
 function updateChartData() {
   const a = State.alerts;
   const cd = State.chartData;
@@ -656,10 +617,7 @@ function drawChart() {
   });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 13. SCAN TRIGGER
-// ─────────────────────────────────────────────────────────────────────────────
-
+// 13. Scan trigger
 async function triggerScan() {
   const btn = $('scan-btn');
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Scanning…'; }
@@ -678,10 +636,7 @@ async function triggerScan() {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 14. VERIFY RULES MODAL
-// ─────────────────────────────────────────────────────────────────────────────
-
+// 14. Verify Rules Modal
 async function verifyRules(dpid = 1) {
   const ov = $('verify-overlay');
   if (!ov) return;
@@ -716,10 +671,7 @@ function closeVerify() {
   if (ov) ov.style.display = 'none';
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 15. MITIGATION LOG MODAL
-// ─────────────────────────────────────────────────────────────────────────────
-
+// 15. Mitigation Log
 async function openMitLog() {
   const ov = $('log-overlay');
   if (!ov) return;
@@ -746,10 +698,7 @@ function closeMitLog() {
   if (ov) ov.style.display = 'none';
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 16. UNBLOCK FORM
-// ─────────────────────────────────────────────────────────────────────────────
-
+// 16. Unblock Form
 function openUnblockForm(alert) {
   // Populate the unblock modal with the alert's flow details
   const ov = $('unblock-overlay');
@@ -799,10 +748,7 @@ async function submitUnblock() {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 17. CSV EXPORT
-// ─────────────────────────────────────────────────────────────────────────────
-
+// 17. CSV Export
 function exportCSV() {
   const alerts = filteredAlerts();
   if (alerts.length === 0) { alert('No alerts to export.'); return; }
@@ -832,10 +778,7 @@ function exportCSV() {
   URL.revokeObjectURL(url);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 18. KEYBOARD NAVIGATION
-// ─────────────────────────────────────────────────────────────────────────────
-
+// 18. Keyboard Nav
 function initKeyboard() {
   document.addEventListener('keydown', e => {
     // Ignore keypresses inside input fields
@@ -885,10 +828,7 @@ function toggleKeyboardHelp() {
   el.style.display = el.style.display === 'flex' ? 'none' : 'flex';
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 19. TAB SWITCHING
-// ─────────────────────────────────────────────────────────────────────────────
-
+// 19. Tab switching
 function setTab(tab, el) {
   State.tab = tab;
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -896,10 +836,7 @@ function setTab(tab, el) {
   renderAlertList();
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 20. NEW-ALERT NOTIFICATIONS
-// ─────────────────────────────────────────────────────────────────────────────
-
+// 20. New Alert Notification
 function notifyNewAlerts(newAlerts) {
   const highCount = newAlerts.filter(a => a.severity === 'high').length;
 
@@ -953,10 +890,7 @@ function toggleAudio() {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 21. CLOSE OVERLAYS ON BACKGROUND CLICK
-// ─────────────────────────────────────────────────────────────────────────────
-
+// 21. Close overlays on background check
 function initOverlayDismiss() {
   ['verify-overlay', 'log-overlay', 'unblock-overlay', 'keyboard-help'].forEach(id => {
     const el = $(id);
@@ -967,10 +901,7 @@ function initOverlayDismiss() {
   });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 22. HTML ESCAPE
-// ─────────────────────────────────────────────────────────────────────────────
-
+// 22. HTML escape
 function esc(s) {
   return String(s ?? '')
     .replace(/&/g, '&amp;')
@@ -980,10 +911,7 @@ function esc(s) {
     .replace(/'/g, '&#39;');
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 23. PUBLIC INTERFACE (called from index.html onclick attributes)
-// ─────────────────────────────────────────────────────────────────────────────
-
+// 23. Public Interface, called from index.html onclick attributes
 // index.html uses onclick="Dashboard.selectAlert(...)" etc.
 // Expose all public functions under a single namespace to avoid globals.
 window.Dashboard = {
@@ -1016,10 +944,7 @@ window.setTab           = setTab;
 window.toggleAudio      = toggleAudio;
 window.toggleKeyboardHelp = toggleKeyboardHelp;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 24. BOOT
-// ─────────────────────────────────────────────────────────────────────────────
-
+// 24. Boot function
 function boot() {
   initKeyboard();
   initOverlayDismiss();
@@ -1039,7 +964,7 @@ function boot() {
   );
 }
 
-// Run after DOM is ready
+// Run last after DOM is ready
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', boot);
 } else {
