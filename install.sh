@@ -1,15 +1,12 @@
 #!/usr/bin/env bash
 # install.sh — Ubuntu 20.04 setup for SDN Federated Anomaly Detection Lab
-#
 # This script installs everything needed for the lab:
-#   - Mininet from source
-#   - Ryu SDN controller
-#   - Tools: hping3, nmap, iperf3
-#
+# - Mininet from source
+# - Ryu SDN controller
+# - Tools: hping3, nmap, iperf3
 # TODO:
-#   chmod +x install.sh
-#   ./install.sh
-#
+# chmod +x install.sh
+# ./install.sh
 # Last updated: May 18, 2026
 
 set -euo pipefail
@@ -100,19 +97,16 @@ else
 fi
 
 # Step 4: Python dependencies
-
 info "Installing Python dependencies..."
 pip3 install --user -r requirements.txt
 sudo pip3 install scapy
 
 # Step 5: Quick Mininet self-test
-
 info "Running Mininet connectivity self-test..."
 sudo mn --test pingall 2>&1 | tail -5
 sudo mn -c 2>/dev/null || true
 
 # Display results
-
 echo ""
 echo -e "${GREEN}------------------------------------------------${NC}"
 echo -e "${GREEN}  --> Installation is complete!${NC}"
