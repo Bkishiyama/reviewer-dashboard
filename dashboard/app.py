@@ -80,8 +80,8 @@ MAX_ALERTS_PER_SCAN = int(os.environ.get("MAX_ALERTS_PER_SCAN", "20"))
 # App factory
 def create_app(
     model_path: str,
-    data_path:  str,
-    auto_scan:  bool = True,
+    data_path: str,
+    auto_scan: bool = True,
 ) -> Flask:
     """
     Create and configure the Flask application.
@@ -90,20 +90,18 @@ def create_app(
     - Path to the trained model bundle (.pkl) used for detection.
     - Passed at startup via CLI args or environment variable MODEL_PATH.
     data_path: str
-    - Path to the flow CSV file to score. In live mode this is a
-    live_client*.csv written by ryu_collector.py.
+    - Path to the flow CSV file to score. In live mode this is a live_client*.csv written by ryu_collector.py.
     auto_scan : bool
-    If True, start a background thread that re-runs detect() every
-    AUTO_SCAN_INTERVAL seconds, pushing new alerts automatically.
-    Returns:
+    If True, start a background thread that re-runs detect() every AUTO_SCAN_INTERVAL seconds, 
+    pushing new alerts automatically.  Returns:
     Flask Configured app instance. Call app.run() or use gunicorn to serve.
     """
     app = Flask(
         __name__,
-        static_folder  = STATIC_DIR,
-        template_folder= TEMPLATES_DIR,
+        static_folder = STATIC_DIR,
+        template_folder = TEMPLATES_DIR,
     )
-    CORS(app)   # Allow calls from the HTML dashboard opened as a local file
+    CORS(app)  # Allow calls from the HTML dashboard opened as a local file
     
     #Shared state
     # These objects are created once and shared across all requests.
@@ -146,17 +144,17 @@ def create_app(
             new_alerts = alerts_from_detections(
                 df,
                 bundle,
-                min_confidence  = MIN_ALERT_CONFIDENCE,
-                max_alerts      = MAX_ALERTS_PER_SCAN,
+                min_confidence = MIN_ALERT_CONFIDENCE,
+                max_alerts = MAX_ALERTS_PER_SCAN,
             )
 
             for alert in new_alerts:
                 queue.push(alert)
 
             with scan_lock:
-                scan_meta["last_scan_at"]    = time.time()
+                scan_meta["last_scan_at"] = time.time()
                 scan_meta["last_scan_count"] = len(new_alerts)
-                scan_meta["total_scans"]    += 1
+                scan_meta["total_scans"] += 1
 
             if new_alerts:
                 logger.info(
@@ -193,11 +191,8 @@ def create_app(
         t = threading.Thread(target=_scanner_loop, daemon=True, name="hitl-scanner")
         t.start()
 
-
     # Routes
-
-    # Dashboard HTML
-    # serve the operator dashboard HTML page.
+    # Dashboard HTML serve the operator dashboard HTML page.
     @app.route("/")
     def index():
         index_path = os.path.join(TEMPLATES_DIR, "index.html")
@@ -240,7 +235,7 @@ def create_app(
 
         return jsonify({
             "alerts": [a.to_dict() for a in alerts],
-            "count":  len(alerts),
+            "count": len(alerts),
         })
     # Return only pending alerts; convenience shortcut for the dashboard poller
     @app.route("/api/alerts/pending", methods=["GET"])
@@ -248,7 +243,7 @@ def create_app(
         alerts = queue.pending()
         return jsonify({
             "alerts": [a.to_dict() for a in alerts],
-            "count":  len(alerts),
+            "count": len(alerts),
         })
     # Return a single alert by its 8-character ID
     @app.route("/api/alerts/<alert_id>", methods=["GET"])
@@ -322,15 +317,15 @@ def create_app(
         )
 
         response = {
-            "status":  "ok",
-            "alert":   updated_alert.to_dict(),
+            "status": "ok",
+            "alert": updated_alert.to_dict(),
             "mitigation": None,
         }
 
         # Trigger mitigation if operator approved
         if decision == Decision.APPROVED:
             logger.info(
-                "[API] Operator APPROVED alert %s — triggering mitigation for %s",
+                "[API] Operator APPROVED alert %s - triggering mitigation for %s",
                 alert_id, updated_alert.src_ip,
             )
             try:
@@ -364,7 +359,7 @@ def create_app(
     Return queue summary counts for the dashboard status bar.
     Response shape:
       { "queue": { "total": N, "by_state": {...}, "by_severity": {...} },
-        "scan":  { "last_scan_at": ..., "total_scans": N, ... },
+        "scan": { "last_scan_at": ..., "total_scans": N, ... },
         "uptime_s": N }
     """
     @app.route("/api/stats", methods=["GET"])
@@ -387,11 +382,11 @@ def create_app(
     @app.route("/api/mitigation/log", methods=["GET"])
     def get_mitigation_log():
         log_path = os.path.join("results", "mitigator.log")
-        n_lines  = int(request.args.get("lines", "50"))
+        n_lines = int(request.args.get("lines", "50"))
         if not os.path.exists(log_path):
             return jsonify({
-                "log":   [],
-                "note":  "No mitigation log yet, no approvals have been made.",
+                "log": [],
+                "note": "No mitigation log yet, no approvals have been made.",
             })
 
         with open(log_path, "r") as f:
@@ -402,13 +397,13 @@ def create_app(
 
     """
     Run ovs-ofctl dump-flows and filter for Tool 4 (HITL) rules.
-    Query parameters: ?dpid=N   — switch DPID to query (default: 1 = s1)
+    Query parameters: ?dpid=N - switch DPID to query (default: 1 = s1)
     Returns the raw ovs-ofctl output lines or an error message if
     ovs-ofctl is not available, i.e. not running inside the Mininet.
     """
     @app.route("/api/mitigation/verify", methods=["GET"])
     def verify_mitigation():
-        dpid   = int(request.args.get("dpid", "1"))
+        dpid = int(request.args.get("dpid", "1"))
         output = verify_rule_installed(dpid)
         return jsonify({"dpid": dpid, "rules": output})
 
@@ -443,7 +438,6 @@ def create_app(
             alert_id = alert_id,
         )
         return jsonify(result.to_dict()), 200
-
 
     # Scan trigger
     """
