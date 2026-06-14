@@ -114,10 +114,10 @@ def cmd_sanitize(args):
             for hr in report.host_reports:
                 writer.writerow({
                     "host_id": hr.host_id,
-                    "metric":  hr.value,
+                    "metric": hr.value,
                     "z_score": f"{hr.z_score:.4f}",
                     "accepted": hr.accepted,
-                    "reason":  hr.reason,
+                    "reason": hr.reason,
                 })
         print(f"\nSanitizer report saved to: {args.out}")
 
@@ -213,12 +213,12 @@ def cmd_dashboard(args):
     os.makedirs("results", exist_ok=True)
 
     print("=" * 60)
-    print("  Tool 4 — HITL Operator Dashboard")
-    print(f"  Model  : {args.model}")
-    print(f"  Data   : {args.data}")
-    print(f"  URL    : http://localhost:{args.port}")
-    print(f"  API    : http://localhost:{args.port}/api/alerts")
-    print(f"  Scan   : {'manual only (--no-auto-scan)' if args.no_auto_scan else f'every 30s (auto)'}")
+    print("  Tool 4 - HITL Operator Dashboard")
+    print(f"  Model : {args.model}")
+    print(f"  Data : {args.data}")
+    print(f"  URL : http://localhost:{args.port}")
+    print(f"  API : http://localhost:{args.port}/api/alerts")
+    print(f"  Scan : {'manual only (--no-auto-scan)' if args.no_auto_scan else f'every 30s (auto)'}")
     print("=" * 60)
     print()
 
@@ -231,9 +231,9 @@ def cmd_dashboard(args):
     # use_reloader=False is critical — Flask's reloader forks the process
     # and would start a second background scanner thread.
     app.run(
-        host         = args.host,
-        port         = args.port,
-        debug        = args.debug,
+        host = args.host,
+        port = args.port,
+        debug = args.debug,
         use_reloader = False,
     )
 
