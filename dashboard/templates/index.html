@@ -5,35 +5,35 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tool 4 — HITL Security Dashboard</title>
 <style>
-  /* ── Reset & base ── */
+  /* Reset & base */
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
-    --bg:       #0f1117;
-    --surface:  #1a1d27;
+    --bg: #0f1117;
+    --surface: #1a1d27;
     --surface2: #222536;
-    --border:   #2e3148;
-    --text:     #e2e4f0;
-    --muted:    #7b7f9e;
-    --high:     #ef4444;
-    --high-bg:  #2d1414;
-    --med:      #f59e0b;
-    --med-bg:   #2d2008;
-    --low:      #3b82f6;
-    --low-bg:   #0d1f3c;
-    --green:    #22c55e;
+    --border: #2e3148;
+    --text: #e2e4f0;
+    --muted: #7b7f9e;
+    --high: #ef4444;
+    --high-bg: #2d1414;
+    --med: #f59e0b;
+    --med-bg: #2d2008;
+    --low: #3b82f6;
+    --low-bg: #0d1f3c;
+    --green: #22c55e;
     --green-bg: #0d2a1a;
-    --purple:   #a78bfa;
-    --radius:   8px;
-    --font:     'Segoe UI', system-ui, sans-serif;
+    --purple: #a78bfa;
+    --radius: 8px;
+    --font: 'Segoe UI', system-ui, sans-serif;
   }
   body { background: var(--bg); color: var(--text); font-family: var(--font);
          font-size: 14px; line-height: 1.6; min-height: 100vh; }
 
-  /* ── Layout ── */
+  /* Layout */
   .shell { display: grid; grid-template-rows: 56px 1fr; height: 100vh; overflow: hidden; }
   .main  { display: grid; grid-template-columns: 340px 1fr; overflow: hidden; }
 
-  /* ── Top bar ── */
+  /* Top bar */
   header {
     background: var(--surface); border-bottom: 1px solid var(--border);
     display: flex; align-items: center; justify-content: space-between;
@@ -63,7 +63,7 @@
   .btn-primary { background: var(--purple); border-color: var(--purple); color: #fff; }
   .btn-primary:hover { background: #8b5cf6; border-color: #8b5cf6; }
 
-  /* ── Alert list panel ── */
+  /* Alert list panel */
   .panel-left {
     border-right: 1px solid var(--border);
     display: flex; flex-direction: column; overflow: hidden;
@@ -138,7 +138,7 @@
     padding: 40px 20px; text-align: center; color: var(--muted); font-size: 13px;
   }
 
-  /* ── Detail panel ── */
+  /* Detail panel */
   .panel-right {
     display: flex; flex-direction: column; overflow: hidden;
     background: var(--bg);
@@ -178,7 +178,7 @@
   .detail-body::-webkit-scrollbar { width: 4px; }
   .detail-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 
-  /* ── Cards ── */
+  /* Cards */
   .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
   .card-head {
     padding: 10px 14px; border-bottom: 1px solid var(--border);
@@ -225,7 +225,7 @@
   .rec-option.opt-monitor { border-left: 3px solid var(--med); }
   .rec-option.opt-ignore  { border-left: 3px solid var(--muted); }
 
-  /* ── Decision bar ── */
+  /* Decision bar */
   .decision-bar {
     padding: 14px 20px; border-top: 1px solid var(--border);
     background: var(--surface);
@@ -259,7 +259,7 @@
   .btn-monitor:disabled,
   .btn-ignore:disabled { opacity: .4; cursor: not-allowed; }
 
-  /* ── Mitigation result toast ── */
+  /* Mitigation result toast */
   .mit-toast {
     background: var(--green-bg); border: 1px solid var(--green);
     border-radius: var(--radius); padding: 8px 12px;
@@ -269,7 +269,7 @@
   .mit-toast.visible { display: flex; }
   .mit-toast.failed  { background: var(--high-bg); border-color: var(--high); color: var(--high); }
 
-  /* ── Stats footer ── */
+  /* Stats footer */
   .stats-row {
     border-top: 1px solid var(--border); padding: 8px 16px;
     display: flex; gap: 16px; flex-shrink: 0; background: var(--surface);
@@ -277,7 +277,7 @@
   }
   .stats-row span b { color: var(--text); }
 
-  /* ── Notification badge on tab ── */
+  /* Notification badge on tab */
   .tab-count {
     background: var(--high); color: #fff; border-radius: 10px;
     padding: 1px 6px; font-size: 10px; font-weight: 700;
@@ -285,7 +285,7 @@
   }
   .tab-count.visible { display: inline; }
 
-  /* ── Scrollbar ── */
+  /* Scrollbar */
   ::-webkit-scrollbar { width: 4px; height: 4px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
@@ -520,17 +520,17 @@
 </div>
 
 <script>
-// ── Config ──────────────────────────────────────────────────────────────────
-const API   = '';          // same origin; change to 'http://localhost:5000' if needed
-const POLL  = 5000;        // ms between alert list refreshes
+// Config
+const API = '';  // same origin; change to 'http://localhost:5000' if needed
+const POLL = 5000;  // ms between alert list refreshes
 
-// ── State ───────────────────────────────────────────────────────────────────
-let allAlerts       = [];
-let currentAlertId  = null;
-let currentTab      = 'all';
-let pollTimer       = null;
+// State 
+let allAlerts = [];
+let currentAlertId = null;
+let currentTab = 'all';
+let pollTimer = null;
 
-// ── Utility ─────────────────────────────────────────────────────────────────
+// Utility
 const $  = id => document.getElementById(id);
 const esc = s  => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
@@ -551,7 +551,7 @@ function fmtAge(ts) {
   return `${Math.floor(d/3600)}h ago`;
 }
 
-// ── Severity helpers ─────────────────────────────────────────────────────────
+// Severity helpers
 function sevColor(sev) {
   return { high:'var(--high)', medium:'var(--med)', low:'var(--low)' }[sev] || 'var(--muted)';
 }
@@ -573,7 +573,7 @@ function extractPattern(explanation) {
   return m ? m[1] : 'Anomaly detected';
 }
 
-// ── Poll: health + alert list ────────────────────────────────────────────────
+// Poll: health + alert list
 async function pollAll() {
   await Promise.all([fetchHealth(), fetchAlerts()]);
 }
@@ -612,7 +612,7 @@ async function fetchAlerts() {
   }
 }
 
-// ── Alert list rendering ─────────────────────────────────────────────────────
+// Alert list rendering
 function setTab(tab, el) {
   currentTab = tab;
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -634,9 +634,9 @@ function renderAlertList() {
   const pendingCount = allAlerts.filter(a => a.decision === 'pending').length;
   const tabPendingBadge = $('tab-pending-count');
   tabPendingBadge.textContent = pendingCount;
-  tabPendingBadge.className   = 'tab-count' + (pendingCount > 0 ? ' visible' : '');
+  tabPendingBadge.className = 'tab-count' + (pendingCount > 0 ? ' visible' : '');
   $('tab-all-count').textContent = allAlerts.length;
-  $('tab-all-count').className   = 'tab-count' + (allAlerts.length > 0 ? ' visible' : '');
+  $('tab-all-count').className = 'tab-count' + (allAlerts.length > 0 ? ' visible' : '');
 
   if (list.length === 0) {
     el.innerHTML = `<div class="empty-state">${
@@ -684,17 +684,17 @@ function updateStats() {
   const me= allAlerts.filter(a => a.severity === 'medium').length;
   const lo= allAlerts.filter(a => a.severity === 'low').length;
 
-  $('s-total').textContent   = t;
+  $('s-total').textContent = t;
   $('s-pending').textContent = p;
-  $('s-approved').textContent= ap;
+  $('s-approved').textContent = ap;
   $('s-monitor').textContent = m;
   $('s-ignored').textContent = ig;
-  $('count-high').textContent= h;
+  $('count-high').textContent = h;
   $('count-med').textContent = me;
   $('count-low').textContent = lo;
 }
 
-// ── Detail panel ─────────────────────────────────────────────────────────────
+// Detail panel
 async function selectAlert(id) {
   currentAlertId = id;
 
@@ -732,16 +732,16 @@ function renderDetail(a) {
   $('d-conf-num').textContent = a.confidence_pct.toFixed(0) + '%';
 
   // Flow fields
-  $('d-src').textContent      = `${a.src_ip}:${a.src_port}`;
-  $('d-dst').textContent      = `${a.dst_ip}:${a.dst_port}`;
-  $('d-proto').textContent    = (a.protocol || '—').toUpperCase();
-  $('d-dpid').textContent     = a.dpid ? `s${a.dpid} (dpid=${a.dpid})` : '—';
-  $('d-bytes').textContent    = `${fmtBytes(a.bytes)} (${a.bytes.toLocaleString()} B)`;
-  $('d-packets').textContent  = a.packets.toLocaleString();
+  $('d-src').textContent = `${a.src_ip}:${a.src_port}`;
+  $('d-dst').textContent = `${a.dst_ip}:${a.dst_port}`;
+  $('d-proto').textContent = (a.protocol || '—').toUpperCase();
+  $('d-dpid').textContent = a.dpid ? `s${a.dpid} (dpid=${a.dpid})` : '—';
+  $('d-bytes').textContent = `${fmtBytes(a.bytes)} (${a.bytes.toLocaleString()} B)`;
+  $('d-packets').textContent = a.packets.toLocaleString();
   $('d-duration').textContent = `${a.duration.toFixed(4)}s`;
-  $('d-score').textContent    = a.anomaly_score.toFixed(4);
-  $('d-rank').textContent     = `#${a.anomaly_rank} of ${a.batch_size}`;
-  $('d-time').textContent     = a.created_at_str || '—';
+  $('d-score').textContent = a.anomaly_score.toFixed(4);
+  $('d-rank').textContent = `#${a.anomaly_rank} of ${a.batch_size}`;
+  $('d-time').textContent = a.created_at_str || '—';
 
   // Feature deviations
   const devsBody = $('d-devs-body');
@@ -801,7 +801,7 @@ function renderDetail(a) {
   toast.style.display = 'none';
 }
 
-// ── Decision submission ───────────────────────────────────────────────────────
+// Decision submission
 async function decide(decision) {
   if (!currentAlertId) return;
 
@@ -858,7 +858,7 @@ async function decide(decision) {
   }
 }
 
-// ── Scan trigger ──────────────────────────────────────────────────────────────
+// Scan trigger
 async function triggerScan() {
   const btn = $('scan-btn');
   btn.disabled    = true;
@@ -875,7 +875,7 @@ async function triggerScan() {
   }
 }
 
-// ── Verify rules modal ────────────────────────────────────────────────────────
+// Verify rules modal
 async function verifyRules() {
   const ov = $('verify-overlay');
   ov.style.display = 'flex';
@@ -889,7 +889,7 @@ async function verifyRules() {
   }
 }
 
-// ── Mitigation log modal ──────────────────────────────────────────────────────
+// Mitigation log modal
 async function openMitLog() {
   const ov = $('log-overlay');
   ov.style.display = 'flex';
@@ -918,7 +918,7 @@ document.getElementById('log-overlay').addEventListener('click', function(e) {
   if (e.target === this) closeOverlay('log-overlay');
 });
 
-// ── Boot ─────────────────────────────────────────────────────────────────────
+// Boot
 pollAll();
 pollTimer = setInterval(pollAll, POLL);
 </script>
