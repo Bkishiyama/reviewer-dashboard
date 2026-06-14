@@ -11,16 +11,16 @@ The server runs on port 5000 (Ryu's uses port 8080) so both
 can run at the same time without conflict.
 
 REST API endpoints:
-GET  /   -> Serve the operator dashboard HTML page
-GET  /api/alerts  -> Return all alerts (pending + resolved)
-GET  /api/alerts/pending -> Return only PENDING alerts
-GET  /api/alerts/<id>  -> Return one alert by ID
-POST /api/decide  -> Submit an operator decision for an alert
-GET  /api/stats  -> Return queue summary counts
-GET  /api/mitigation/log  -> Return the mitigation audit log
-GET  /api/mitigation/verify  -> Run ovs-ofctl to verify installed rules
-POST /api/scan  -> Trigger a fresh detect() run on a data file
-GET  /api/health  -> Health check, returns uptime and queue size
+GET / -> Serve the operator dashboard HTML page
+GET /api/alerts -> Return all alerts (pending + resolved)
+GET /api/alerts/pending -> Return only PENDING alerts
+GET /api/alerts/<id> -> Return one alert by ID
+POST /api/decide -> Submit an operator decision for an alert
+GET /api/stats -> Return queue summary counts
+GET /api/mitigation/log -> Return the mitigation audit log
+GET /api/mitigation/verify -> Run ovs-ofctl to verify installed rules
+POST /api/scan -> Trigger a fresh detect() run on a data file
+GET /api/health -> Health check, returns uptime and queue size
 
 CORS is enabled so the dashboard HTML, served from /mnt/user-data or opened
 as a local file, can call the API without browser cross-origin errors.
@@ -62,7 +62,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger("dashboard.app")
 
-
 # Configuration
 DASHBOARD_PORT = int(os.environ.get("DASHBOARD_PORT", "5000"))
 DASHBOARD_HOST = os.environ.get("DASHBOARD_HOST", "0.0.0.0")
@@ -78,9 +77,7 @@ MIN_ALERT_CONFIDENCE = float(os.environ.get("MIN_ALERT_CONFIDENCE", "50.0"))
 # Maximum alerts created per scan batch; prevents flooding under attack
 MAX_ALERTS_PER_SCAN = int(os.environ.get("MAX_ALERTS_PER_SCAN", "20"))
 
-
 # App factory
-
 def create_app(
     model_path: str,
     data_path:  str,
@@ -107,13 +104,11 @@ def create_app(
         template_folder= TEMPLATES_DIR,
     )
     CORS(app)   # Allow calls from the HTML dashboard opened as a local file
-
     
     #Shared state
     # These objects are created once and shared across all requests.
     # Flask is single-threaded by default in dev mode, but we use a lock
     # for the scanner thread which runs concurrently.
-
     queue = AlertQueue(max_size=500)
     mitigator = Mitigator()
     start_time = time.time()
@@ -128,7 +123,6 @@ def create_app(
     }
     scan_lock = threading.Lock()
 
-  
     # Helper: run one detection scan
     """
     Load the model, score the data file, convert anomalies to alerts,
@@ -223,9 +217,7 @@ def create_app(
     def static_files(filename):
         return send_from_directory(STATIC_DIR, filename)
 
-  
     # Alert endpoints
-
     """
     Return all alerts (pending and resolved), newest first.
     Query parameters:
@@ -267,7 +259,6 @@ def create_app(
         return jsonify(alert.to_dict())
 
     # Decision endpoint
-
     """
     Submit an operator decision for a pending alert.
     Request body (JSON):
@@ -282,7 +273,6 @@ def create_app(
     """
     @app.route("/api/decide", methods=["POST"])
     def submit_decision():
-
         body = request.get_json(silent=True)
         if not body:
             return jsonify({"error": "Request body must be JSON."}), 400
@@ -390,7 +380,6 @@ def create_app(
 
 
     # Mitigation endpoints
-
     """
     Return the contents of the mitigation audit log (results/mitigator.log).
     Query parameters: ?lines=N   — return the last N lines (default: 50)
@@ -426,10 +415,10 @@ def create_app(
     """
     Manually unblock a host and remove the Tool 4 DROP rule.
     Request body (JSON):
-      { "src_ip":   "10.0.0.4",
+      { "src_ip": "10.0.0.4",
         "dst_port": 80,
         "protocol": "tcp",
-        "dpid":     1,
+        "dpid": 1,
         "alert_id": "a1b2c3d4"  (optional, for audit log) }
     """
     @app.route("/api/mitigation/unblock", methods=["POST"])
@@ -438,26 +427,25 @@ def create_app(
         if not body:
             return jsonify({"error": "Request body must be JSON."}), 400
 
-        src_ip   = body.get("src_ip", "")
+        src_ip = body.get("src_ip", "")
         dst_port = int(body.get("dst_port", 0))
         protocol = body.get("protocol", "tcp")
-        dpid     = int(body.get("dpid", 1))
+        dpid = int(body.get("dpid", 1))
         alert_id = body.get("alert_id", "manual")
         if not src_ip:
             return jsonify({"error": "Missing field: src_ip"}), 400
 
         result = mitigator.unblock(
-            src_ip   = src_ip,
+            src_ip = src_ip,
             dst_port = dst_port,
             protocol = protocol,
-            dpid     = dpid,
+            dpid = dpid,
             alert_id = alert_id,
         )
         return jsonify(result.to_dict()), 200
 
 
     # Scan trigger
-
     """
     Trigger an immediate detection scan on demand.
     press a button in the dashboard to force a fresh scan 
@@ -469,8 +457,8 @@ def create_app(
     """
     @app.route("/api/scan", methods=["POST"])
     def trigger_scan():
-        body           = request.get_json(silent=True) or {}
-        override_data  = body.get("data_path")
+        body = request.get_json(silent=True) or {}
+        override_data = body.get("data_path")
 
         # Temporarily override data path if provided
         nonlocal_data = data_path
@@ -481,25 +469,25 @@ def create_app(
                 import joblib
                 from src.detect import detect
 
-                bundle     = joblib.load(model_path)
-                df         = detect(model_path, override_data, verbose=False)
+                bundle = joblib.load(model_path)
+                df = detect(model_path, override_data, verbose=False)
                 new_alerts = alerts_from_detections(
                     df, bundle,
                     min_confidence = MIN_ALERT_CONFIDENCE,
-                    max_alerts     = MAX_ALERTS_PER_SCAN,
+                    max_alerts = MAX_ALERTS_PER_SCAN,
                 )
                 for alert in new_alerts:
                     queue.push(alert)
 
                 with scan_lock:
-                    scan_meta["last_scan_at"]    = time.time()
+                    scan_meta["last_scan_at"] = time.time()
                     scan_meta["last_scan_count"] = len(new_alerts)
-                    scan_meta["total_scans"]    += 1
+                    scan_meta["total_scans"] += 1
 
                 return jsonify({
                     "new_alerts": len(new_alerts),
-                    "data_path":  override_data,
-                    "pending":    len(queue.pending()),
+                    "data_path": override_data,
+                    "pending": len(queue.pending()),
                 }), 200
 
             except Exception as exc:
@@ -509,13 +497,12 @@ def create_app(
         n = run_scan(verbose=False)
         return jsonify({
             "new_alerts": n,
-            "data_path":  data_path,
-            "pending":    len(queue.pending()),
+            "data_path": data_path,
+            "pending": len(queue.pending()),
         }), 200
 
 
     # Health check
-
     """
     Health check endpoint is used by the dashboard to confirm the
     server is reachable and show uptime.
@@ -554,10 +541,7 @@ def create_app(
 
     return app
 
-
-
 # CLI entry point or cli.py's cmd_dashboard
-
 def main():
     parser = argparse.ArgumentParser(
         prog = "dashboard/app.py",
