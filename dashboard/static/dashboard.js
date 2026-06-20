@@ -4,16 +4,16 @@
  * It owns all client-side state, API communication, DOM rendering, and UX
  * behaviour for the operator dashboard.
  * Responsibilities (split from what index.html does inline):
- *   1.  State management  — single source of truth for all alerts + UI state
- *   2.  API layer — typed fetch wrappers for every app.py endpoint
- *   3.  Alert list render — virtualized-style diff to avoid full redraws
- *   4.  Detail panel — full alert detail with animated feature bars
- *   5.  Decision flow — approve/monitor/ignore with mitigation feedback
- *   6.  Live chart — rolling severity histogram (last 60 scans)
- *   7.  Notifications — new-alert badge flashing + optional audio ping
- *   8.  Keyboard nav — j/k to move, a/m/i to decide, r to refresh
- *   9.  Unblock form — manual rule removal without going to the CLI
- *  10.  Export — download current alert list as CSV
+ *   1.  State management: single source of truth for all alerts + UI state
+ *   2.  API layer: typed fetch wrappers for every app.py endpoint
+ *   3.  Alert list render: virtualized-style diff to avoid full redraws
+ *   4.  Detail panel: full alert detail with animated feature bars
+ *   5.  Decision flow: approve/monitor/ignore with mitigation feedback
+ *   6.  Live chart: rolling severity histogram (last 60 scans)
+ *   7.  Notifications: new-alert badge flashing + optional audio ping
+ *   8.  Keyboard nav: j/k to move, a/m/i to decide, r to refresh
+ *   9.  Unblock form: manual rule removal without going to the CLI
+ *  10.  Export: download current alert list as CSV
  * All DOM IDs referenced here match index.html exactly.
  * No external libraries — plain ES2020, works in any modern browser.
  * Usage:
@@ -120,10 +120,10 @@ function zColor(absZ) {
 // Decision pill style
 function pillStyle(decision) {
   const m = {
-    pending:  'background:#2a2030;color:#a78bfa',
+    pending: 'background:#2a2030;color:#a78bfa',
     approved: 'background:#2d1414;color:#ef4444',
-    monitor:  'background:#2d2008;color:#f59e0b',
-    ignored:  'background:#222536;color:#7b7f9e',
+    monitor: 'background:#2d2008;color:#f59e0b',
+    ignored: 'background:#222536;color:#7b7f9e',
   };
   return m[decision] || m.pending;
 }
@@ -131,7 +131,7 @@ function pillStyle(decision) {
 // 6. API layer
 async function apiFetch(path, opts = {}) {
   const url = CFG.apiBase + path;
-  const r   = await fetch(url, {
+  const r = await fetch(url, {
     headers: { 'Content-Type': 'application/json' },
     ...opts,
   });
@@ -143,15 +143,15 @@ async function apiFetch(path, opts = {}) {
 }
 
 const API = {
-  health:      ()          => apiFetch('/api/health'),
-  alerts:      (state='')  => apiFetch(`/api/alerts${state ? '?state=' + state : ''}`),
-  alert:       id          => apiFetch(`/api/alerts/${id}`),
-  decide:      body        => apiFetch('/api/decide',    { method: 'POST', body: JSON.stringify(body) }),
-  scan:        body        => apiFetch('/api/scan',      { method: 'POST', body: JSON.stringify(body || {}) }),
-  stats:       ()          => apiFetch('/api/stats'),
-  mitLog:      (n=100)     => apiFetch(`/api/mitigation/log?lines=${n}`),
-  verify:      (dpid=1)    => apiFetch(`/api/mitigation/verify?dpid=${dpid}`),
-  unblock:     body        => apiFetch('/api/mitigation/unblock', { method: 'POST', body: JSON.stringify(body) }),
+  health: () => apiFetch('/api/health'),
+  alerts: (state='') => apiFetch(`/api/alerts${state ? '?state=' + state : ''}`),
+  alert: id => apiFetch(`/api/alerts/${id}`),
+  decide: body => apiFetch('/api/decide', { method: 'POST', body: JSON.stringify(body) }),
+  scan: body => apiFetch('/api/scan', { method: 'POST', body: JSON.stringify(body || {}) }),
+  stats: () => apiFetch('/api/stats'),
+  mitLog: (n=100) => apiFetch(`/api/mitigation/log?lines=${n}`),
+  verify: (dpid=1) => apiFetch(`/api/mitigation/verify?dpid=${dpid}`),
+  unblock: body => apiFetch('/api/mitigation/unblock', { method: 'POST', body: JSON.stringify(body) }),
 };
 
 // 7. POLLING LOOP
@@ -163,7 +163,7 @@ async function refreshHealth() {
   try {
     const d = await API.health();
     setServerOnline(true);
-    setText('uptime-val',    fmtUptime(d.uptime_s));
+    setText('uptime-val', fmtUptime(d.uptime_s));
     setText('last-scan-val', d.last_scan ? fmtAge(d.last_scan) : 'never');
   } catch {
     setServerOnline(false);
@@ -171,16 +171,16 @@ async function refreshHealth() {
 }
 
 function setServerOnline(online) {
-  const dot  = $('server-status-dot');
+  const dot = $('server-status-dot');
   const text = $('server-status-text');
   if (!dot || !text) return;
-  dot.className  = online ? 'dot dot-green' : 'dot dot-red';
+  dot.className = online ? 'dot dot-green' : 'dot dot-red';
   text.textContent = online ? 'connected' : 'offline';
 }
 
 async function refreshAlerts() {
   try {
-    const d   = await API.alerts();
+    const d = await API.alerts();
     const prev = State.seenIds.size;
     const newAlerts = (d.alerts || []).filter(a => !State.seenIds.has(a.alert_id));
 
@@ -210,7 +210,7 @@ async function refreshAlerts() {
 // 8. Alert list render
 
 function filteredAlerts() {
-  if (State.tab === 'pending')  return State.alerts.filter(a => a.decision === 'pending');
+  if (State.tab === 'pending') return State.alerts.filter(a => a.decision === 'pending');
   if (State.tab === 'resolved') return State.alerts.filter(a => a.decision !== 'pending');
   return State.alerts;
 }
@@ -239,11 +239,11 @@ function emptyStateMsg() {
 }
 
 function alertRowHTML(a, idx) {
-  const active   = a.alert_id === State.currentId ? ' active' : '';
-  const pattern  = extractPattern(a.explanation);
-  const color    = sevColor(a.severity);
-  const cColor   = confColor(a.confidence_pct);
-  const isNew    = idx === 0 && State.tab !== 'resolved' ? ' new-alert' : '';
+  const active = a.alert_id === State.currentId ? ' active' : '';
+  const pattern = extractPattern(a.explanation);
+  const color = sevColor(a.severity);
+  const cColor = confColor(a.confidence_pct);
+  const isNew = idx === 0 && State.tab !== 'resolved' ? ' new-alert' : '';
 
   return `<div class="alert-row${active}${isNew}"
                data-id="${esc(a.alert_id)}"
@@ -276,13 +276,13 @@ function updateTabCounts(pendingCount) {
   const pb = $('tab-pending-count');
   if (pb) {
     pb.textContent = pendingCount;
-    pb.className   = 'tab-count' + (pendingCount > 0 ? ' visible' : '');
+    pb.className = 'tab-count' + (pendingCount > 0 ? ' visible' : '');
   }
   // All tab badge
   const ab = $('tab-all-count');
   if (ab) {
     ab.textContent = State.alerts.length;
-    ab.className   = 'tab-count' + (State.alerts.length > 0 ? ' visible' : '');
+    ab.className = 'tab-count' + (State.alerts.length > 0 ? ' visible' : '');
   }
 }
 
@@ -306,7 +306,7 @@ async function selectAlert(id) {
 
 function showDetailPanel(visible) {
   const placeholder = $('detail-placeholder');
-  const view        = $('detail-view');
+  const view = $('detail-view');
   if (!placeholder || !view) return;
   placeholder.style.display = visible ? 'none' : 'flex';
   view.className = visible ? 'detail-view visible' : 'detail-view';
@@ -317,7 +317,7 @@ function renderDetail(a) {
   const chip = $('d-sev-chip');
   if (chip) {
     chip.textContent = a.severity.toUpperCase();
-    chip.className   = `sev-chip chip-${a.severity}`;
+    chip.className = `sev-chip chip-${a.severity}`;
   }
   setText('d-pattern', extractPattern(a.explanation));
 
@@ -327,8 +327,8 @@ function renderDetail(a) {
   if (ring && cNum) {
     const c = confColor(a.confidence_pct);
     ring.style.borderColor = c;
-    cNum.style.color       = c;
-    cNum.textContent       = a.confidence_pct.toFixed(0) + '%';
+    cNum.style.color = c;
+    cNum.textContent = a.confidence_pct.toFixed(0) + '%';
   }
 
   // Flow fields
@@ -383,8 +383,8 @@ function renderDeviations(devs) {
 
   body.innerHTML = devs.map((d, i) => {
     const absZ = Math.abs(d.z_score);
-    const pct  = Math.min(100, (absZ / maxZ) * 100);
-    const col  = zColor(absZ);
+    const pct = Math.min(100, (absZ / maxZ) * 100);
+    const col = zColor(absZ);
     const sign = d.z_score >= 0 ? '+' : '';
     const mult = d.multiplier >= 2 ? ` · ${d.multiplier.toFixed(1)}× baseline` : '';
 
@@ -429,7 +429,7 @@ function renderRecommendation(rec) {
 
 function renderDecisionBar(a) {
   const decided = a.decision !== 'pending';
-  const bar     = $('decision-bar');
+  const bar = $('decision-bar');
   if (bar) bar.className = 'decision-bar' + (decided ? ' decided' : '');
 
   const label = $('dec-label');
@@ -454,7 +454,7 @@ async function decide(decision) {
 
   try {
     const resp = await API.decide({
-      alert_id:   State.currentId,
+      alert_id: State.currentId,
       decision,
       decided_by: 'operator',
     });
@@ -487,15 +487,15 @@ function showMitToast(decision, mitigation) {
   if (!toast || !toastTxt) return;
 
   let text = '';
-  let cls  = 'mit-toast visible';
+  let cls = 'mit-toast visible';
 
   if (decision === 'approved' && mitigation) {
     const ok = mitigation.status === 'success';
     cls  += ok ? '' : ' failed';
     text  = ok
-      ? `✓ DROP rule installed on s${mitigation.dpid} via ${mitigation.method}` +
+      ? `🟢 DROP rule installed on s${mitigation.dpid} via ${mitigation.method}` +
         `  (cookie ${mitigation.rule_cookie})`
-      : `✗ Mitigation failed: ${mitigation.error || 'unknown error'}`;
+      : `🔴 Mitigation failed: ${mitigation.error || 'unknown error'}`;
   } else if (decision === 'monitor') {
     text = '👁 Alert flagged for monitoring — no SDN rule installed.';
   } else if (decision === 'ignored') {
@@ -504,9 +504,9 @@ function showMitToast(decision, mitigation) {
     text = 'Decision recorded.';
   }
 
-  toast.className       = cls;
-  toast.style.display   = 'flex';
-  toastTxt.textContent  = text;
+  toast.className = cls;
+  toast.style.display = 'flex';
+  toastTxt.textContent = text;
 
   // Auto-hide after CFG.toastDuration
   clearTimeout(toast._timer);
@@ -516,7 +516,7 @@ function showMitToast(decision, mitigation) {
 function hideMitToast() {
   const toast = $('mit-toast');
   if (!toast) return;
-  toast.className    = 'mit-toast';
+  toast.className = 'mit-toast';
   toast.style.display = 'none';
   clearTimeout(toast._timer);
 }
@@ -562,10 +562,10 @@ function drawChart() {
   if (!canvas) return;
 
   const ctx = canvas.getContext('2d');
-  const W   = canvas.width;
-  const H   = canvas.height;
-  const cd  = State.chartData;
-  const n   = cd.high.length;
+  const W = canvas.width;
+  const H = canvas.height;
+  const cd = State.chartData;
+  const n = cd.high.length;
 
   ctx.clearRect(0, 0, W, H);
 
@@ -584,16 +584,16 @@ function drawChart() {
   // each line's Y is total from 0, so they don't overlap visually.
 
   const series = [
-    { data: cd.low,    color: '#3b82f6' },
+    { data: cd.low, color: '#3b82f6' },
     { data: cd.medium, color: '#f59e0b' },
-    { data: cd.high,   color: '#ef4444' },
+    { data: cd.high, color: '#ef4444' },
   ];
 
   series.forEach(({ data, color }) => {
     ctx.beginPath();
     ctx.strokeStyle = color;
-    ctx.lineWidth   = 1.5;
-    ctx.lineJoin    = 'round';
+    ctx.lineWidth = 1.5;
+    ctx.lineJoin = 'round';
     data.forEach((v, i) => {
       i === 0 ? ctx.moveTo(xOf(i), yOf(v)) : ctx.lineTo(xOf(i), yOf(v));
     });
@@ -710,11 +710,11 @@ function openUnblockForm(alert) {
   const dpidEl = $('ub-dpid');
   const aidEl  = $('ub-alert-id');
 
-  if (srcEl)   srcEl.value   = alert.src_ip   || '';
-  if (portEl)  portEl.value  = alert.dst_port  || 0;
-  if (protoEl) protoEl.value = alert.protocol  || 'tcp';
-  if (dpidEl)  dpidEl.value  = alert.dpid      || 1;
-  if (aidEl)   aidEl.value   = alert.alert_id  || '';
+  if (srcEl) srcEl.value = alert.src_ip || '';
+  if (portEl) portEl.value = alert.dst_port || 0;
+  if (protoEl) protoEl.value = alert.protocol || 'tcp';
+  if (dpidEl) dpidEl.value = alert.dpid || 1;
+  if (aidEl) aidEl.value = alert.alert_id || '';
 
   ov.style.display = 'flex';
 }
@@ -726,10 +726,10 @@ function closeUnblockForm() {
 }
 
 async function submitUnblock() {
-  const srcIp   = ($('ub-src-ip')   || {}).value || '';
+  const srcIp = ($('ub-src-ip') || {}).value || '';
   const dstPort = parseInt(($('ub-dst-port') || {}).value || '0', 10);
-  const proto   = ($('ub-protocol') || {}).value || 'tcp';
-  const dpid    = parseInt(($('ub-dpid')     || {}).value || '1', 10);
+  const proto = ($('ub-protocol') || {}).value || 'tcp';
+  const dpid = parseInt(($('ub-dpid') || {}).value || '1', 10);
   const alertId = ($('ub-alert-id') || {}).value || 'manual';
 
   if (!srcIp) { setText('ub-result', '⚠ src_ip is required.'); return; }
@@ -740,8 +740,8 @@ async function submitUnblock() {
     const d = await API.unblock({ src_ip: srcIp, dst_port: dstPort, protocol: proto, dpid, alert_id: alertId });
     const ok = d.status === 'success';
     setText('ub-result', ok
-      ? `✓ Rule removed via ${d.method}`
-      : `✗ Unblock failed: ${d.error || 'unknown'}`);
+      ? `🟢 Rule removed via ${d.method}`
+      : `🔴 Unblock failed: ${d.error || 'unknown'}`);
     if (ok) await refreshAlerts();
   } catch (e) {
     setText('ub-result', `✗ Error: ${e.message}`);
@@ -761,18 +761,18 @@ function exportCSV() {
   ];
 
   const header = cols.join(',');
-  const rows   = alerts.map(a =>
+  const rows = alerts.map(a =>
     cols.map(c => {
       const v = a[c] ?? '';
       return typeof v === 'string' && v.includes(',') ? `"${v}"` : v;
     }).join(',')
   );
 
-  const csv  = [header, ...rows].join('\n');
+  const csv = [header, ...rows].join('\n');
   const blob = new Blob([csv], { type: 'text/csv' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href     = url;
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
   a.download = `hitl-alerts-${new Date().toISOString().slice(0, 10)}.csv`;
   a.click();
   URL.revokeObjectURL(url);
