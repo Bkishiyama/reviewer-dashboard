@@ -254,103 +254,87 @@ class Alert:
 
         return alert
 
-    # ── Serialisation ─────────────────────────────────────────────────────────
-
+    """ Serialization
+    Serialize the alert to a plain dict for the Flask REST API and
+    the operator dashboard's JavaScript frontend.
+    """
     def to_dict(self) -> dict:
-        """
-        Serialise the alert to a plain dict for the Flask REST API and
-        the operator dashboard's JavaScript frontend.
-        """
         return {
-            "alert_id":       self.alert_id,
-            "created_at":     self.created_at,
+            "alert_id": self.alert_id,
+            "created_at": self.created_at,
             "created_at_str": time.strftime(
                 "%Y-%m-%d %H:%M:%S", time.localtime(self.created_at)
             ),
-            "anomaly_score":  round(self.anomaly_score, 4),
-            "anomaly_rank":   self.anomaly_rank,
-            "batch_size":     self.batch_size,
+            "anomaly_score": round(self.anomaly_score, 4),
+            "anomaly_rank": self.anomaly_rank,
+            "batch_size": self.batch_size,
             "confidence_pct": self.confidence_pct,
-            "severity":       self.severity.value,
-            "src_ip":         self.src_ip,
-            "dst_ip":         self.dst_ip,
-            "src_port":       self.src_port,
-            "dst_port":       self.dst_port,
-            "protocol":       self.protocol,
-            "dpid":           self.dpid,
-            "bytes":          self.bytes,
-            "packets":        self.packets,
-            "duration":       round(self.duration, 4),
+            "severity": self.severity.value,
+            "src_ip": self.src_ip,
+            "dst_ip": self.dst_ip,
+            "src_port": self.src_port,
+            "dst_port": self.dst_port,
+            "protocol": self.protocol,
+            "dpid": self.dpid,
+            "bytes": self.bytes,
+            "packets": self.packets,
+            "duration": round(self.duration, 4),
             "top_deviations": [d.to_dict() for d in self.top_deviations],
-            "explanation":    self.explanation,
+            "explanation": self.explanation,
             "recommendation": self.recommendation,
-            "decision":       self.decision.value,
-            "decided_at":     self.decided_at,
+            "decision": self.decision.value,
+            "decided_at": self.decided_at,
             "decided_at_str": (
                 time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(self.decided_at))
                 if self.decided_at else None
             ),
-            "decided_by":     self.decided_by,
+            "decided_by": self.decided_by,
         }
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# AlertQueue
-# ──────────────────────────────────────────────────────────────────────────────
 
+"""  AlertQueue
+Thread-safe queue of Alert objects.
+The Flask dashboard, dashboard/app.py, and the Ryu controller, sdn_mininet/ryu_collector.py,
+run in separate threads. This class uses a lock so both can safely push and read alerts concurrently.
+Design choice - the dashboard needs random access by alert_id to update a decision after operator 
+interaction.
+"""
 class AlertQueue:
     """
-    Thread-safe queue of Alert objects.
-
-    The Flask dashboard (dashboard/app.py) and the Ryu controller
-    (sdn_mininet/ryu_collector.py) run in separate threads. This class
-    uses a lock so both can safely push and read alerts concurrently.
-
-    Design choice — why not a real queue?
-    The dashboard needs random access by alert_id (to update a decision
-    after operator interaction). A dict keyed by alert_id gives O(1)
-    lookup while keeping insertion order (Python 3.7+).
+    Parameters
+    max_size: int
+    Maximum number of alerts retained in memory. When the queue is full, the oldest 
+    resolved alert is evicted. If all alerts are still PENDING, the oldest pending 
+    alert is evicted and a warning is logged. This prevents memory exhaustion under a
+    sustained attack.
     """
-
     def __init__(self, max_size: int = 500):
-        """
-        Parameters
-        ----------
-        max_size : int
-            Maximum number of alerts retained in memory. When the queue
-            is full, the oldest resolved alert is evicted. If all alerts
-            are still PENDING, the oldest pending alert is evicted and a
-            warning is logged — this prevents memory exhaustion under a
-            sustained attack.
-        """
         self._alerts: dict[str, Alert] = {}
         self._lock    = threading.Lock()
         self._max     = max_size
 
-    # ── Write operations ──────────────────────────────────────────────────────
-
+    # Write operations
+    # Add a new alert to the queue.
     def push(self, alert: Alert) -> None:
-        """Add a new alert to the queue."""
         with self._lock:
             if len(self._alerts) >= self._max:
                 self._evict_oldest()
             self._alerts[alert.alert_id] = alert
             logger.debug("[AlertQueue] Pushed alert %s (queue size: %d)",
                          alert.alert_id, len(self._alerts))
-
+    
+    """
+    Record an operator's decision on a pending alert. Returns the updated Alert, 
+    or None if the alert_id is not found. The caller (dashboard/app.py) should trigger 
+    mitigator.py when the returned alert has decision == Decision.APPROVED.
+    """
     def decide(
         self,
         alert_id: str,
         decision: Decision,
         decided_by: str = "operator",
     ) -> Optional[Alert]:
-        """
-        Record an operator's decision on a pending alert.
-
-        Returns the updated Alert, or None if the alert_id is not found.
-        The caller (dashboard/app.py) should trigger mitigator.py when
-        the returned alert has decision == Decision.APPROVED.
-        """
         with self._lock:
             alert = self._alerts.get(alert_id)
             if alert is None:
@@ -376,51 +360,44 @@ class AlertQueue:
 
             return alert
 
-    # ── Read operations ───────────────────────────────────────────────────────
-
+    # Read operations
+    # Retrieve a single alert by ID 
     def get(self, alert_id: str) -> Optional[Alert]:
-        """Retrieve a single alert by ID (thread-safe)."""
         with self._lock:
             return self._alerts.get(alert_id)
-
+    # Return all alerts still waiting for operator review, with newest first
     def pending(self) -> list[Alert]:
-        """Return all alerts still waiting for operator review, newest first."""
         with self._lock:
             return [
                 a for a in reversed(list(self._alerts.values()))
                 if a.decision == Decision.PENDING
             ]
-
+    # Return every alert, all decisions with newest first
     def all_alerts(self) -> list[Alert]:
-        """Return every alert (all decisions), newest first."""
         with self._lock:
             return list(reversed(list(self._alerts.values())))
-
+    # Return alerts the operator has already acted on
     def resolved(self) -> list[Alert]:
-        """Return alerts the operator has already acted on."""
         with self._lock:
             return [
                 a for a in reversed(list(self._alerts.values()))
                 if a.decision != Decision.PENDING
             ]
 
+    # Summary counts for the dashboard's status bar. Returns counts by decision state and by severity.
     def stats(self) -> dict:
-        """
-        Summary counts for the dashboard's status bar.
-        Returns counts by decision state and by severity.
-        """
         with self._lock:
             alerts = list(self._alerts.values())
 
         counts = {d.value: 0 for d in Decision}
-        sev    = {s.value: 0 for s in Severity}
+        sev = {s.value: 0 for s in Severity}
 
         for a in alerts:
             counts[a.decision.value] += 1
-            sev[a.severity.value]    += 1
+            sev[a.severity.value] += 1
 
         return {
-            "total":    len(alerts),
+            "total": len(alerts),
             "by_state": counts,
             "by_severity": sev,
         }
@@ -429,14 +406,12 @@ class AlertQueue:
         with self._lock:
             return len(self._alerts)
 
-    # ── Internal ──────────────────────────────────────────────────────────────
-
+    
+    """  Internal
+    Remove the oldest resolved alert. If none are resolved, remove the oldest pending alert
+    Called inside the lock do not acquire the lock again
+    """
     def _evict_oldest(self) -> None:
-        """
-        Remove the oldest resolved alert. If none are resolved, remove
-        the oldest pending alert (last-resort eviction with a warning).
-        Called inside the lock — do not acquire the lock again here.
-        """
         # Try to evict a resolved alert first
         for aid, alert in self._alerts.items():
             if alert.decision != Decision.PENDING:
@@ -444,7 +419,7 @@ class AlertQueue:
                 logger.debug("[AlertQueue] Evicted resolved alert %s", aid)
                 return
 
-        # All alerts are pending — evict the oldest one
+        # All alerts are pending; evict the oldest one
         oldest_id = next(iter(self._alerts))
         del self._alerts[oldest_id]
         logger.warning(
@@ -453,30 +428,22 @@ class AlertQueue:
         )
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Feature deviation computation
-# ──────────────────────────────────────────────────────────────────────────────
 
+"""  Feature deviation computation
+Compare each feature value in row against the training baseline stored in model_bundle["score_stats"] 
+and the raw training data stats. For the global federated model, average baseline stats across clients. 
+For a local model bundle, use the single client's stats directly.
+Returns a list of FeatureDeviation objects, one per FEATURE_NAMES entry that is present in both 
+the row and the bundle.
+"""
 def _compute_deviations(
     row: pd.Series,
     model_bundle: dict,
 ) -> list[FeatureDeviation]:
-    """
-    Compare each feature value in `row` against the training baseline
-    stored in model_bundle["score_stats"] and the raw training data stats.
-
-    For the global federated model, we average baseline stats across clients.
-    For a local model bundle, we use the single client's stats directly.
-
-    Returns a list of FeatureDeviation objects, one per FEATURE_NAMES entry
-    that is present in both the row and the bundle.
-    """
-
     # Extract baseline mean/std for each feature.
     # local_train.py stores score_stats (mean, std, p5, p1) but does not store
-    # per-feature stats — so we derive a best-effort baseline from the bundle.
-    # If per-feature stats are available (from a future training extension),
-    # they are used directly.
+    # per-feature stats, so derive a best-effort baseline from the bundle.
+    # If per-feature stats are available, use directly.
     feature_stats = _extract_feature_stats(model_bundle)
 
     deviations = []
@@ -488,7 +455,7 @@ def _compute_deviations(
 
         if feat in feature_stats:
             b_mean = feature_stats[feat]["mean"]
-            b_std  = feature_stats[feat]["std"]
+            b_std = feature_stats[feat]["std"]
         else:
             # No baseline available for this feature — skip it
             continue
@@ -496,28 +463,24 @@ def _compute_deviations(
         z = (flow_val - b_mean) / b_std if b_std > 0 else 0.0
 
         deviations.append(FeatureDeviation(
-            feature       = feat,
-            label         = FEATURE_LABELS.get(feat, feat),
-            flow_value    = flow_val,
+            feature = feat,
+            label = FEATURE_LABELS.get(feat, feat),
+            flow_value = flow_val,
             baseline_mean = b_mean,
-            baseline_std  = b_std,
-            z_score       = z,
+            baseline_std = b_std,
+            z_score = z,
         ))
 
     return deviations
 
-
+"""
+Pull per-feature baseline stats from the model bundle.
+local_train.py currently only stores overall score stats (mean, std).
+This function uses those to derive a reasonable per-feature approximation, and reads per-feature 
+stats from bundle["feature_stats"] if your training pipeline stores them.
+Returns a dict: { feature_name: {"mean": float, "std": float} }
+"""
 def _extract_feature_stats(model_bundle: dict) -> dict[str, dict]:
-    """
-    Pull per-feature baseline stats from the model bundle.
-
-    local_train.py currently only stores overall score stats (mean, std).
-    This function uses those to derive a reasonable per-feature approximation,
-    and reads per-feature stats from bundle["feature_stats"] if your training
-    pipeline stores them (recommended extension for Tool 4).
-
-    Returns a dict: { feature_name: {"mean": float, "std": float} }
-    """
     stats: dict[str, dict] = {}
 
     # Preferred: per-feature stats stored at training time
@@ -533,11 +496,11 @@ def _extract_feature_stats(model_bundle: dict) -> dict[str, dict]:
         # Merge by averaging across clients for each feature
         for feat in FEATURE_NAMES:
             means = [cs[feat]["mean"] for cs in all_client_stats if feat in cs]
-            stds  = [cs[feat]["std"]  for cs in all_client_stats if feat in cs]
+            stds = [cs[feat]["std"]  for cs in all_client_stats if feat in cs]
             if means:
                 stats[feat] = {
                     "mean": float(np.mean(means)),
-                    "std":  float(np.mean(stds)),
+                    "std": float(np.mean(stds)),
                 }
         if stats:
             return stats
@@ -547,25 +510,22 @@ def _extract_feature_stats(model_bundle: dict) -> dict[str, dict]:
     # (from scripts/generate_data.py). These keep the dashboard functional
     # even without extended training stats.
     DEFAULTS = {
-        "bytes":            {"mean": 15_000.0, "std": 50_000.0},
-        "packets":          {"mean": 10.0,     "std": 30.0},
-        "duration":         {"mean": 2.5,      "std": 5.0},
-        "bytes_per_packet": {"mean": 1_200.0,  "std": 3_000.0},
-        "packet_rate":      {"mean": 5.0,      "std": 20.0},
-        "protocol_enc":     {"mean": 0.5,      "std": 0.7},
+        "bytes": {"mean": 15_000.0, "std": 50_000.0},
+        "packets": {"mean": 10.0, "std": 30.0},
+        "duration": {"mean": 2.5, "std": 5.0},
+        "bytes_per_packet": {"mean": 1_200.0, "std": 3_000.0},
+        "packet_rate": {"mean": 5.0, "std": 20.0},
+        "protocol_enc": {"mean": 0.5, "std": 0.7},
     }
     return DEFAULTS
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Fallback explanation builders (used if src/explainer.py is not present)
-# ──────────────────────────────────────────────────────────────────────────────
-
+# Fallback explanation builders - used if src/explainer.py is not present
+# Minimal explanation when src/explainer.py is not available
 def _fallback_explanation(
     top_devs: list[FeatureDeviation],
     severity: Severity,
 ) -> str:
-    """Minimal explanation when src/explainer.py is not available."""
     if not top_devs:
         return "Anomalous flow detected. No feature breakdown available."
 
@@ -577,57 +537,47 @@ def _fallback_explanation(
         )
 
     header = {
-        Severity.HIGH:   "⚠ HIGH SEVERITY — unusual traffic pattern detected",
-        Severity.MEDIUM: "⚡ MEDIUM SEVERITY — moderately suspicious flow",
-        Severity.LOW:    "ℹ LOW SEVERITY — minor anomaly flagged",
+        Severity.HIGH: "⚠ HIGH SEVERITY -> unusual traffic pattern detected",
+        Severity.MEDIUM: "⚡ MEDIUM SEVERITY -> moderately suspicious flow",
+        Severity.LOW: "ℹ LOW SEVERITY -> minor anomaly flagged",
     }[severity]
 
     return header + "\n\nTop contributing indicators:\n" + "\n".join(reasons)
 
-
+# Minimal recommendation when src/explainer.py is not available
 def _fallback_recommendation(severity: Severity) -> str:
-    """Minimal recommendation when src/explainer.py is not available."""
     recs = {
-        Severity.HIGH:   "Consider blocking this host immediately.",
+        Severity.HIGH: "Consider blocking this host immediately.",
         Severity.MEDIUM: "Monitor this host closely. Block if behaviour persists.",
-        Severity.LOW:    "Log and continue monitoring.",
+        Severity.LOW: "Log and continue monitoring.",
     }
     return recs[severity]
 
 
-# ──────────────────────────────────────────────────────────────────────────────
 # Convenience: batch-process a detect.py output DataFrame
-# ──────────────────────────────────────────────────────────────────────────────
-
+    """
+    Convert the top anomalous rows from detect.py's output into Alert objects.
+    Parameters
+    - detections_df: pd.DataFrame
+    Full output of detect() -> contains anomaly_score, anomaly_rank, is_anomaly, plus original flow columns.
+    - model_bundle: dict
+    Loaded model bundle from joblib (.pkl file).
+    - min_confidence : float
+    Only create alerts for flows with confidence >= this value (0–100).
+    Default 50.0 — filters out the least suspicious half.
+    - max_alerts : int
+      Cap on how many alerts to create in one batch. Prevents flooding
+      the dashboard during large-scale attacks.
+    Returns
+    list[Alert]
+    Alerts sorted by confidence descending with most suspicious first
+    """
 def alerts_from_detections(
     detections_df: pd.DataFrame,
     model_bundle: dict,
     min_confidence: float = 50.0,
     max_alerts: int = 50,
 ) -> list[Alert]:
-    """
-    Convert the top anomalous rows from detect.py's output into Alert objects.
-
-    Parameters
-    ----------
-    detections_df : pd.DataFrame
-        Full output of detect() — contains anomaly_score, anomaly_rank,
-        is_anomaly, plus original flow columns.
-    model_bundle : dict
-        Loaded model bundle from joblib (.pkl file).
-    min_confidence : float
-        Only create alerts for flows with confidence >= this value (0–100).
-        Default 50.0 — filters out the least suspicious half.
-    max_alerts : int
-        Cap on how many alerts to create in one batch. Prevents flooding
-        the dashboard during large-scale attacks.
-
-    Returns
-    -------
-    list[Alert]
-        Alerts sorted by confidence descending (most suspicious first).
-    """
-
     # Keep only flagged anomalies above the confidence threshold
     flagged = detections_df[detections_df["is_anomaly"] == True].copy()
 
@@ -641,7 +591,7 @@ def alerts_from_detections(
     alerts = []
     for _, row in flagged.iterrows():
         # Compute confidence inline to apply the filter before building Alert
-        rank_pct   = int(row["anomaly_rank"]) / max(len(detections_df), 1)
+        rank_pct = int(row["anomaly_rank"]) / max(len(detections_df), 1)
         confidence = (1.0 - rank_pct) * 100
 
         if confidence < min_confidence:
