@@ -1,73 +1,59 @@
 from __future__ import annotations
-
 #!/usr/bin/env python3
+
 """
-src/explainer.py — Human-Readable Alert Explanation Engine (Tool 4)
-
-This module is responsible for the explainability requirement of the
-assignment: "the system explains why the behavior is suspicious."
-
-It converts raw FeatureDeviation objects (from hitl.py) into plain-English
-text that a non-expert network operator can understand at a glance.
-
+src/explainer.py Human-Readable Alert Explanation Engine (Tool 4)
+Purpose: This module is responsible for why the system deems the behavior as suspicious
+It takes the raw FeatureDeviation objects, from hitl.py, and converts it into understandable 
+text for non-experts. 
 Two main outputs per alert:
-1. explanation  — what the model saw, in plain language
-2. recommendation — what the operator should consider doing
+1. explanation -> what the model saw, in simple terms
+2. recommendation -> what the user should do 
 
-The explanation logic works in two layers:
-  Layer 1: Pattern matching
-      Check for known attack signatures (DDoS, port scan, flow table
-      exhaustion) based on feature combinations and port/protocol context.
-      If a known pattern matches, use a specific, accurate description.
-
-  Layer 2: Feature-driven fallback
-      If no known pattern matches, describe the top deviating features
-      directly — "packet rate was 12.3× above baseline" — without guessing
-      the attack type. This is safer than a wrong label.
-
-Usage (called by hitl.py, but can also be used directly):
+The explanation logic works has two phases:
+  Phase 1: Pattern matching
+      Check for known attack signatures, e.g., DDoS, port scan, flow table exhaustion, based on 
+      feature combinations and port/protocol context. If a known pattern matches, 
+      use a understandable description.
+  Phase 2: Feature-driven fallback
+      If no pattern matches, describe the likely deviating features, e.g., packet rate was 12.3× 
+      above the baseline and do not label it.
+Usage: called by hitl.py, but can also be used directly
     from src.hitl import FeatureDeviation, Severity
     from src.explainer import build_explanation, build_recommendation
-
-    explanation    = build_explanation(top_devs, severity, protocol)
+    explanation = build_explanation(top_devs, severity, protocol)
     recommendation = build_recommendation(severity, protocol, dst_port)
 """
 
-
 import logging
 from typing import Optional
-
-# hitl.py is in the same package — import the types we need
 from src.hitl import FeatureDeviation, Severity
 
 logger = logging.getLogger(__name__)
 
 
-# ──────────────────────────────────────────────────────────────────────────────
 # Well-known port map (for display in explanation text)
-# ──────────────────────────────────────────────────────────────────────────────
-
 PORT_NAMES: dict[int, str] = {
-    20:   "FTP data",
-    21:   "FTP control",
-    22:   "SSH",
-    23:   "Telnet",
-    25:   "SMTP",
-    53:   "DNS",
-    67:   "DHCP",
-    80:   "HTTP",
-    110:  "POP3",
-    123:  "NTP",
-    143:  "IMAP",
-    161:  "SNMP",
-    389:  "LDAP",
-    443:  "HTTPS",
-    445:  "SMB",
-    465:  "SMTPS",
-    514:  "Syslog",
-    636:  "LDAPS",
-    993:  "IMAPS",
-    995:  "POP3S",
+    20: "FTP data",
+    21: "FTP control",
+    22: "SSH",
+    23: "Telnet",
+    25: "SMTP",
+    53: "DNS",
+    67: "DHCP",
+    80: "HTTP",
+    110: "POP3",
+    123: "NTP",
+    143: "IMAP",
+    161: "SNMP",
+    389: "LDAP",
+    443: "HTTPS",
+    445: "SMB",
+    465: "SMTPS",
+    514: "Syslog",
+    636: "LDAPS",
+    993: "IMAPS",
+    995: "POP3S",
     1433: "MSSQL",
     3306: "MySQL",
     3389: "RDP",
@@ -80,45 +66,39 @@ PORT_NAMES: dict[int, str] = {
     27017: "MongoDB",
 }
 
-# Ports that are particularly sensitive — flag in recommendation text
+# Ports that are sensitive & flag in recommendation text
 SENSITIVE_PORTS: set[int] = {
     22, 23, 25, 53, 80, 161, 389, 443, 445,
     1433, 3306, 3389, 5432, 6379, 6633, 6653, 27017,
 }
 
-# Ports typical of scanning behaviour (low + well-known services)
+# Ports typical of scanning behaviour, low + well-known services
 SCAN_TARGET_PORTS: set[int] = {
     21, 22, 23, 25, 53, 80, 110, 135, 139, 143,
     443, 445, 3306, 3389, 8080,
 }
 
 
-# ──────────────────────────────────────────────────────────────────────────────
 # Pattern detection helpers
-# ──────────────────────────────────────────────────────────────────────────────
-
+# Return the FeatureDeviation for a named feature, or None if absent
 def _get_feature(devs: list[FeatureDeviation], name: str) -> Optional[FeatureDeviation]:
-    """Return the FeatureDeviation for a named feature, or None if absent."""
     for d in devs:
         if d.feature == name:
             return d
     return None
 
-
+# Return the Z-score for a named feature, or 0.0 if not present
 def _z(devs: list[FeatureDeviation], name: str) -> float:
-    """Return the Z-score for a named feature, or 0.0 if not present."""
     d = _get_feature(devs, name)
     return d.z_score if d else 0.0
 
-
+# Return the observed value for a named feature, or 0.0 if not present
 def _val(devs: list[FeatureDeviation], name: str) -> float:
-    """Return the observed value for a named feature, or 0.0 if not present."""
     d = _get_feature(devs, name)
     return d.flow_value if d else 0.0
 
-
+# Format a numeric value for human display, use K/M suffixes for large numbers
 def _fmt_val(v: float) -> str:
-    """Format a numeric value for human display — use K/M suffixes for large numbers."""
     if v >= 1_000_000:
         return f"{v / 1_000_000:.1f}M"
     if v >= 1_000:
@@ -127,48 +107,41 @@ def _fmt_val(v: float) -> str:
         return str(int(v))
     return f"{v:.2f}"
 
-
+# Return 'port 80 (HTTP)' style label, or just 'port N' if unknown
 def _port_label(port: int) -> str:
-    """Return 'port 80 (HTTP)' style label, or just 'port N' if unknown."""
     name = PORT_NAMES.get(port)
     return f"port {port} ({name})" if name else f"port {port}"
 
 
-# ──────────────────────────────────────────────────────────────────────────────
 # Pattern matchers
 # Each returns a (matched: bool, label: str, detail: str) tuple.
-# label  = short attack type name shown in the alert header
+# label = short attack type name shown in the alert header
 # detail = one or two sentences describing the specific indicators
-# ──────────────────────────────────────────────────────────────────────────────
-
+"""
+DDoS signature: very high byte/packet counts, very short duration, targeting a small number of well-known ports.
+From generate_data.py's _ddos_flows():
+  bytes : 40,000–1,500,000
+  packets : 500–5,000
+  duration: 0.001–0.5 s  (very short)
+"""
 def _match_ddos(
     all_devs: list[FeatureDeviation],
     protocol: str,
     dst_port: int,
 ) -> tuple[bool, str, str]:
-    """
-    DDoS signature: very high byte/packet counts, very short duration,
-    targeting a small number of well-known ports.
-
-    From generate_data.py's _ddos_flows():
-      bytes   : 40,000–1,500,000
-      packets : 500–5,000
-      duration: 0.001–0.5 s  (very short)
-    """
-    bytes_z      = _z(all_devs, "bytes")
-    packets_z    = _z(all_devs, "packets")
-    duration_z   = _z(all_devs, "duration")
-    pkt_rate_z   = _z(all_devs, "packet_rate")
-
-    bytes_val    = _val(all_devs, "bytes")
-    packets_val  = _val(all_devs, "packets")
+    bytes_z = _z(all_devs, "bytes")
+    packets_z = _z(all_devs, "packets")
+    duration_z = _z(all_devs, "duration")
+    pkt_rate_z = _z(all_devs, "packet_rate")
+    bytes_val  = _val(all_devs, "bytes")
+    packets_val = _val(all_devs, "packets")
     duration_val = _val(all_devs, "duration")
     pkt_rate_val = _val(all_devs, "packet_rate")
 
     # Must have: high bytes OR high packets AND short duration
-    high_volume  = bytes_z > 2.0 or packets_z > 2.0
-    short_lived  = duration_z < -1.0 or duration_val < 1.0  # negative Z = below baseline
-    high_rate    = pkt_rate_z > 2.0
+    high_volume = bytes_z > 2.0 or packets_z > 2.0
+    short_lived = duration_z < -1.0 or duration_val < 1.0  # negative Z = below baseline
+    high_rate = pkt_rate_z > 2.0
 
     if not (high_volume and (short_lived or high_rate)):
         return False, "", ""
@@ -185,41 +158,37 @@ def _match_ddos(
     )
     return True, "Potential DDoS / volumetric flood", detail
 
-
+"""
+Port scan signature: tiny packets, very short duration, single-packet flows, often TCP SYN only.
+From generate_data.py's _port_scan_flows():
+bytes: 40–120  (small probe packets)
+packets: 1  (single SYN per flow)
+duration: 0.0001–0.05 s
+"""
 def _match_port_scan(
     all_devs: list[FeatureDeviation],
     protocol: str,
     dst_port: int,
     src_port: int,
 ) -> tuple[bool, str, str]:
-    """
-    Port scan signature: tiny packets, very short duration, single-packet flows,
-    often TCP SYN only.
-
-    From generate_data.py's _port_scan_flows():
-      bytes   : 40–120   (small probe packets)
-      packets : 1        (single SYN per flow)
-      duration: 0.0001–0.05 s
-    """
-    bytes_val    = _val(all_devs, "bytes")
-    packets_val  = _val(all_devs, "packets")
+    bytes_val = _val(all_devs, "bytes")
+    packets_val = _val(all_devs, "packets")
     duration_val = _val(all_devs, "duration")
-    bpp_val      = _val(all_devs, "bytes_per_packet")
-
-    bytes_z      = _z(all_devs, "bytes")
-    packets_z    = _z(all_devs, "packets")
-    duration_z   = _z(all_devs, "duration")
+    bpp_val = _val(all_devs, "bytes_per_packet")
+    bytes_z = _z(all_devs, "bytes")
+    packets_z = _z(all_devs, "packets")
+    duration_z = _z(all_devs, "duration")
 
     # Must have: very small packets AND single/few-packet flows
     tiny_payload = bytes_val < 200 and bytes_z < -0.5
-    single_pkt   = packets_val <= 2
-    instant      = duration_val < 0.1
+    single_pkt = packets_val <= 2
+    instant = duration_val < 0.1
 
     if not (tiny_payload and (single_pkt or instant)):
         return False, "", ""
 
     proto_str = protocol.upper() if protocol else "TCP"
-    port_str  = _port_label(dst_port) if dst_port in SCAN_TARGET_PORTS else f"port {dst_port}"
+    port_str = _port_label(dst_port) if dst_port in SCAN_TARGET_PORTS else f"port {dst_port}"
 
     detail = (
         f"This flow carried only {_fmt_val(bytes_val)} bytes in "
@@ -231,37 +200,34 @@ def _match_port_scan(
     )
     return True, "Potential port scan / reconnaissance", detail
 
-
+"""
+Flow table exhaustion (FTE) signature: many tiny, short-lived flows from random source IPs 
+targeting random ports, designed to fill the switch's flow table and force table-miss 
+CPU load on the controller.
+From generate_data.py's _flow_table_exhaustion():
+bytes: 40–500  (small)
+packets: 1  (single packet per flow)
+duration: 0.0001–0.1 s
+src_ip: fully randomised (not visible at feature level, but packet_rate and bytes_per_packet 
+patterns are distinctive)
+"""
 def _match_flow_table_exhaustion(
     all_devs: list[FeatureDeviation],
     protocol: str,
 ) -> tuple[bool, str, str]:
-    """
-    Flow table exhaustion (FTE) signature: many tiny, short-lived flows
-    from randomised source IPs targeting random ports — designed to fill
-    the switch's flow table and force table-miss CPU load on the controller.
-
-    From generate_data.py's _flow_table_exhaustion():
-      bytes   : 40–500  (small)
-      packets : 1       (single packet per flow)
-      duration: 0.0001–0.1 s
-      src_ip  : fully randomised (not visible at feature level, but
-                packet_rate and bytes_per_packet patterns are distinctive)
-    """
-    bytes_val    = _val(all_devs, "bytes")
-    packets_val  = _val(all_devs, "packets")
+    bytes_val = _val(all_devs, "bytes")
+    packets_val = _val(all_devs, "packets")
     duration_val = _val(all_devs, "duration")
-    bpp_val      = _val(all_devs, "bytes_per_packet")
-
-    bytes_z    = _z(all_devs, "bytes")
+    bpp_val = _val(all_devs, "bytes_per_packet")
+    bytes_z = _z(all_devs, "bytes")
     duration_z = _z(all_devs, "duration")
 
-    # FTE looks like scan but bytes may be slightly larger, and the dst_port
-    # is typically also random (not in SCAN_TARGET_PORTS). We check for the
-    # combination of small payload + instant duration + not-a-scan-port.
-    tiny     = bytes_val < 600 and bytes_z < 0
-    instant  = duration_val < 0.15
-    one_pkt  = packets_val <= 2
+    # FTE looks like scan but bytes may be slightly larger, and the dst_port is typically 
+    # also random, not in SCAN_TARGET_PORTS. We check for the combination of small payload
+    # + instant duration + not-a-scan-port.
+    tiny = bytes_val < 600 and bytes_z < 0
+    instant = duration_val < 0.15
+    one_pkt = packets_val <= 2
 
     if not (tiny and instant and one_pkt):
         return False, "", ""
