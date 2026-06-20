@@ -1,9 +1,7 @@
 /** dashboard/static/dashboard.js
  * Tool 4 HITL Dashboard Logic
- * This file is loaded by dashboard/templates/index.html.
- * It owns all client-side state, API communication, DOM rendering, and UX
- * behaviour for the operator dashboard.
- * Responsibilities (split from what index.html does inline):
+ * This file is used with dashboard/templates/index.html.
+ * Responsibilities:
  *   1.  State management: single source of truth for all alerts + UI state
  *   2.  API layer: typed fetch wrappers for every app.py endpoint
  *   3.  Alert list render: virtualized-style diff to avoid full redraws
@@ -14,24 +12,22 @@
  *   8.  Keyboard nav: j/k to move, a/m/i to decide, r to refresh
  *   9.  Unblock form: manual rule removal without going to the CLI
  *  10.  Export: download current alert list as CSV
- * All DOM IDs referenced here match index.html exactly.
- * No external libraries — plain ES2020, works in any modern browser.
  * Usage:
- *   index.html loads this file last, after the DOM is fully parsed:
- *     <script src="/static/dashboard.js" defer></script>
+ * index.html loads this file last, after DOM:
+ * <script src="/static/dashboard.js" defer></script>
  */
 
 'use strict';
 
 // 1. Config
 const CFG = {
-  apiBase:        '',  // same-origin; override to 'http://localhost:5000' if needed
-  pollInterval:   5_000,  // ms between background refreshes
+  apiBase: '',  // same-origin; override to 'http://localhost:5000' if needed
+  pollInterval: 5_000,  // ms between background refreshes
   chartMaxPoints: 60,  // rolling window for severity chart
-  animBarDelay:   30,  // ms stagger between feature bar animations
-  toastDuration:  6_000,  // ms before mitigation toast fades
-  audioEnabled:   false,  // toggled by operator via bell button
-  newAlertSound:  440,  // Hz for Web Audio ping on new HIGH alerts
+  animBarDelay: 30,  // ms stagger between feature bar animations
+  toastDuration: 6_000,  // ms before mitigation toast fades
+  audioEnabled: false,  // toggled by operator via bell button
+  newAlertSound: 440,  // Hz for Web Audio ping on new HIGH alerts
 };
 
 // 2. State
@@ -59,7 +55,7 @@ function setText(id, val) {
 function fmtBytes(n) {
   n = Number(n) || 0;
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(2) + ' MB';
-  if (n >= 1_000)     return (n / 1_000).toFixed(1) + ' KB';
+  if (n >= 1_000) return (n / 1_000).toFixed(1) + ' KB';
   return n + ' B';
 }
 
@@ -78,8 +74,8 @@ function fmtUptime(s) {
 
 function fmtAge(unixTs) {
   const d = Math.round(Date.now() / 1000 - unixTs);
-  if (d < 5)    return 'just now';
-  if (d < 60)   return `${d}s ago`;
+  if (d < 5) return 'just now';
+  if (d < 60) return `${d}s ago`;
   if (d < 3600) return `${Math.floor(d / 60)}m ago`;
   return `${Math.floor(d / 3600)}h ago`;
 }
@@ -102,7 +98,7 @@ const SEV_COLORS = {
 };
 
 function sevColor(sev) { return (SEV_COLORS[sev] || SEV_COLORS.low).fg; }
-function sevBg(sev)    { return (SEV_COLORS[sev] || SEV_COLORS.low).bg; }
+function sevBg(sev) { return (SEV_COLORS[sev] || SEV_COLORS.low).bg; }
 
 function confColor(pct) {
   if (pct >= 80) return '#ef4444';
@@ -359,7 +355,7 @@ function renderDetail(a) {
   // Decision bar
   renderDecisionBar(a);
 
-  //Unblock button (only show if this alert has been approved)
+  //Unblock button
   const ubBtn = $('btn-unblock');
   if (ubBtn) {
     ubBtn.style.display = a.decision === 'approved' ? 'inline-flex' : 'none';
