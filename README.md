@@ -95,6 +95,8 @@ GitHub MCV assisted
 ![Architecture Diagram](docs/sdn_fl_T4.svg)
 draw.io assisted
 
+### Hosts and Switches
+
 | Host | Role | Switch | IP |
 |------|------|--------|----|
 | h1 | Benign client (HTTP, iperf3) | s1 | 10.0.0.1 |
