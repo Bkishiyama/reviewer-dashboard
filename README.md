@@ -95,6 +95,13 @@ GitHub MCV assisted
 ![Architecture Diagram](docs/sdn_fl_T4.svg)
 draw.io assisted
 
+
+![Program Overview](docs/hitl.drawio.svg)
+draw.io assisted
+
+
+https://github.com/Bkishiyama/reviewer-dashboard/blob/main/docs/hitl.drawio.svg
+
 ---
 
 | Host | Role | Switch | IP |
