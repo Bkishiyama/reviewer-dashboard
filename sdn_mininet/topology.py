@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 #!/usr/bin/env python3
 
 """ sdn_mininet/topology.py 
@@ -8,32 +7,24 @@ This topology is used for Tools 1, 2, and 3.
 Summary:
 Tool 1: FL anomaly detection -> ryu_collector.py polls flow stats -> CSVs
 Tool 2: Poisoning defense -> h6 runs poisoned_host.py; cleaned by sanitizer.py
-Tool 3: FlowMod injection -> attacker (h7) runs injector.py; drops HTTP on s1
-
-Added h7 to the topology from Tool 1 -> connects to s1; runs sdn_mininet/injector.py
-h2 does HTTP on port 80 and the injection target
+Tool 3: FlowMod injection -> attacker (h7) runs injector.py; HTTP traffic dropped on s1
+h7 is added to the topology <-> s1; h7 runs injector.py
+h2 has HTTP on port 80 and the injection target s1
 s1 gets a passive OVS listener on ptcp:6654 -> allows injector to connect
 to the switch with a second controller session
-
 ## OpenFlow controller port
 Tools 1 & 2 use port 6633.  The sniffer in injector.py matches this. 
-
 Usage
 - Terminal 1: Ryu with FL collector and Tool 2poisoning guard
   - ryu-manager sdn_mininet/ryu_collector.py --observe-links
-
 - Terminal 2: start topology (benign only)
   - sudo python3 sdn_mininet/topology.py --time 120
-
 - Terminal 2: with all attacks
   sudo python3 sdn_mininet/topology.py --time 120 --attack --inject
-
 - Terminal 3: Tool 3 - inject FlowMod (or run from Mininet CLI)
   - python3 sdn_mininet/injector.py
-
 - Terminal 4: watch Tool 1 data accumulate
   - watch -n 5 wc -l data/live_client*.csv
-
 -  Verify Tool 3 in Mininet CLI
   - mininet> h1 curl --max-time 3 http://10.0.0.2/  # times out (injected)
   - mininet> h1 ping -c 3 10.0.0.2  # succeeds - evasion proof
@@ -44,7 +35,6 @@ import argparse
 import subprocess
 import sys
 import time
-
 from mininet.cli import CLI
 from mininet.log import info, setLogLevel
 from mininet.net import Mininet
@@ -53,19 +43,16 @@ from mininet.topo import Topo
 from mininet.util import dumpNodeConnections
 
 
-#  Topology Definition
-"""
-Three switches: s1<–>s2<–>s3), each one represents one 
-federated client organization.
-s1: h1, h2 — client1 org
-s2: h3, h4 (DDoS)  — client2 org
-s3: h5, h6 (poison)  — client3 org
-Tool 3 adding h7 as the attacker to s1:
-h7 shares s1 so it can inject FlowMods that
-affects HTTP traffic between h1 <-> h2 as both are on the same switch.
+""" Topology Definition
+Three switches: s1<–>s2<–>s3, each one represents one federated client organization.
+s1: {h1, h2} —> FL client1 -> one Isolation Forest
+s2: {h3, h4 (DDoS)}  —> FL client2 org -> one Isolation Forest
+s3: {h5, h6 (poison)}  —> FL client3 org -> one Isolation Forest
+For Tool 3, I add h7 as the attacker to s1:
+h7 shares s1 so it can inject FlowMods that affects HTTP traffic 
+between h1 <-> h2 as both are on the same switch.
 """
 class FederatedSDNTopo(Topo):
-
     def build(self):
         # Switches
         s1 = self.addSwitch("s1", dpid="0000000000000001")
@@ -99,9 +86,7 @@ class FederatedSDNTopo(Topo):
         self.addLink(h7, s1)   # Tool 3: attacker added to s1
 
 
-
-#*** Traffic Generators ***
-"""
+""" *** Traffic Generators ***
 Launch normal traffic across the topology.
 Uses iperf3 (TCP + UDP), ping, and HTTP so the Ryu collector
 Tool 1 continues to capture a realistic data flow.
@@ -109,7 +94,6 @@ Tool 3 -> I added h2 to run an HTTP server on port 80.
 This gives the injector a target to block.
 """
 def start_benign_traffic(net, duration: int):
-
     h1 = net.get("h1")
     h2 = net.get("h2")
     h3 = net.get("h3")
@@ -165,7 +149,6 @@ Labels are set manually after the run using label_window.py.
 h4 = DDoS SYN flood, h6 = port scanner remain from Tool 2.
 """
 def start_attack_traffic(net, duration: int):
-
     h4 = net.get("h4")   # Tool 2: DDoS attacker
     h6 = net.get("h6")   # Tool 2: port scanner / FL poisoner
 
@@ -204,7 +187,6 @@ network namespace and cannot sniff the host loopback.  The sniff phase
 is still useful when running injector.py directly from the host terminal.
 """
 def start_inject_attack(net):
-
     h7 = net.get("h7")
     info("[!] Tool 3: launching FlowMod injector from h7\n")
     # h7 connects to 127.0.0.1:6654. This resolves to the HOST loopback
@@ -241,7 +223,6 @@ After traffic generation, label the attack flows:
 #  Main
 def run(run_attacks: bool = False, run_inject: bool = False, duration: int = 60):
     setLogLevel("info")
-
     topo = FederatedSDNTopo()
     net = Mininet(
         topo=topo,
@@ -265,12 +246,10 @@ def run(run_attacks: bool = False, run_inject: bool = False, duration: int = 60)
         "ptcp:6654"              # add passive listener for injector
     )
     s1.cmd("ovs-vsctl set bridge s1 protocols=OpenFlow13")
-
+    s1.cmd("ovs-vsctl set bridge s1 fail-mode=standalone")
     info("[!] Topology connections:\n")
     dumpNodeConnections(net.hosts)
 
-    info("[!] Waiting for Ryu to install table-miss flows on all switches...\n")
-    time.sleep(5)
     info("[!] Testing basic connectivity (ping all pairs)\n")
     net.pingAll()
 
