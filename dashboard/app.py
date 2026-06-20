@@ -3,8 +3,8 @@ from __future__ import annotations
 
 """ dashboard/app.py
 Tool 4: HITL Operator Dashboard Server
-This Flask application is the Human-in-the-Loop web interface for Tool 4.
-It is connects the anomaly detection pipeline to the operator:
+This Flask application is the Human-in-the-Loop (HITL) web interface for Tool 4.
+It is connects the anomaly detection pipeline to the operator, i.e.,
 detect.py feeds to hitl.py (AlertQueue) feeds to  app.py (REST API) sends to  dashboard UI
 The human operator approves and mitigator.py sends to OVS switch.
 The server runs on port 5000 (Ryu's uses port 8080) so both
@@ -24,7 +24,6 @@ GET /api/health -> Health check, returns uptime and queue size
 
 CORS is enabled so the dashboard HTML, served from /mnt/user-data or opened
 as a local file, can call the API without browser cross-origin errors.
-
 Usage:
 # Start the dashboard (from project root):
 python3 cli.py dashboard --model models/global.pkl --data data/new_flows.csv
@@ -104,9 +103,8 @@ def create_app(
     CORS(app)  # Allow calls from the HTML dashboard opened as a local file
     
     #Shared state
-    # These objects are created once and shared across all requests.
-    # Flask is single-threaded by default in dev mode, but we use a lock
-    # for the scanner thread which runs concurrently.
+    # These objects are created once and shared across all requests. Flask is single-threaded 
+    # by default in dev mode, but we use a lock for the scanner thread which runs concurrently.
     queue = AlertQueue(max_size=500)
     mitigator = Mitigator()
     start_time = time.time()
@@ -121,8 +119,8 @@ def create_app(
     }
     scan_lock = threading.Lock()
 
-    # Helper: run one detection scan
-    """
+    
+    """  Helper: run one detection scan
     Load the model, score the data file, convert anomalies to alerts,
     push them to the queue, and return the number of new alerts created.
     Safe to call from the background thread or from the /api/scan endpoint.
@@ -212,13 +210,13 @@ def create_app(
     def static_files(filename):
         return send_from_directory(STATIC_DIR, filename)
 
-    # Alert endpoints
-    """
+    
+    """  Alert endpoints
     Return all alerts (pending and resolved), newest first.
     Query parameters:
-      ?state=pending — only PENDING alerts
-      ?state=resolved — only decided alerts
-      ?limit=N — return at most N alerts (default = 100)
+      ?state=pending -> only PENDING alerts
+      ?state=resolved -> only decided alerts
+      ?limit=N -> return at most N alerts (default = 100)
     """  
     @app.route("/api/alerts", methods=["GET"])
     def get_all_alerts():
@@ -253,13 +251,13 @@ def create_app(
             abort(404, description=f"Alert '{alert_id}' not found.")
         return jsonify(alert.to_dict())
 
-    # Decision endpoint
-    """
+    
+    """  Decision endpoint
     Submit an operator decision for a pending alert.
     Request body (JSON):
       { "alert_id": "a1b2c3d4",
         "decision": "approved" | "monitor" | "ignored",
-        "decided_by": "operator"   (optional, default: "operator") }
+        "decided_by": "operator" (optional, default: "operator") }
     When decision == "approved", this endpoint also:
     1. Calls mitigator.from_alert() to install the DROP flow rule
     2. Returns the mitigation result alongside the updated alert
@@ -322,7 +320,7 @@ def create_app(
             "mitigation": None,
         }
 
-        # Trigger mitigation if operator approved
+        # Trigger mitigation if user approved
         if decision == Decision.APPROVED:
             logger.info(
                 "[API] Operator APPROVED alert %s - triggering mitigation for %s",
@@ -354,8 +352,8 @@ def create_app(
 
         return jsonify(response), 200
 
-    # Stats endpoint
-    """
+   
+    """  Stats endpoint
     Return queue summary counts for the dashboard status bar.
     Response shape:
       { "queue": { "total": N, "by_state": {...}, "by_severity": {...} },
@@ -373,9 +371,8 @@ def create_app(
             "uptime_s": round(time.time() - start_time, 1),
         })
 
-
-    # Mitigation endpoints
-    """
+    
+    """  Mitigation endpoints
     Return the contents of the mitigation audit log (results/mitigator.log).
     Query parameters: ?lines=N   — return the last N lines (default: 50)
     """
@@ -407,15 +404,7 @@ def create_app(
         output = verify_rule_installed(dpid)
         return jsonify({"dpid": dpid, "rules": output})
 
-    """
-    Manually unblock a host and remove the Tool 4 DROP rule.
-    Request body (JSON):
-      { "src_ip": "10.0.0.4",
-        "dst_port": 80,
-        "protocol": "tcp",
-        "dpid": 1,
-        "alert_id": "a1b2c3d4"  (optional, for audit log) }
-    """
+    # Manually unblock a host and remove the Tool 4 DROP rule.
     @app.route("/api/mitigation/unblock", methods=["POST"])
     def unblock_host():
         body = request.get_json(silent=True)
@@ -441,12 +430,8 @@ def create_app(
 
     # Scan trigger
     """
-    Trigger an immediate detection scan on demand.
-    press a button in the dashboard to force a fresh scan 
-    without waiting for the auto-scan timer.
-    Optional request body (JSON):
-      { "data_path": "data/live_client1.csv" }
-      (defaults to the data_path passed at startup)
+    Trigger an immediate detection scan on demand. press a button in the 
+    dashboard to force a fresh scan without waiting for the auto-scan timer.
     Returns the number of new alerts created.
     """
     @app.route("/api/scan", methods=["POST"])
@@ -496,8 +481,7 @@ def create_app(
         }), 200
 
 
-    # Health check
-    """
+    """  Health check
     Health check endpoint is used by the dashboard to confirm the
     server is reachable and show uptime.
     """
@@ -535,7 +519,7 @@ def create_app(
 
     return app
 
-# CLI entry point or cli.py's cmd_dashboard
+# cli entry point
 def main():
     parser = argparse.ArgumentParser(
         prog = "dashboard/app.py",
