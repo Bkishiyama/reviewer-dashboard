@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Tool 4 — HITL Security Dashboard</title>
+<title>Tool 4: HITL Security Dashboard</title>
 <style>
   /* Reset & base */
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -80,9 +80,9 @@
     font-size: 11px; font-weight: 700; border-radius: 10px;
     padding: 1px 8px; min-width: 22px; text-align: center;
   }
-  .badge-high   { background: var(--high-bg);  color: var(--high); }
-  .badge-med    { background: var(--med-bg);   color: var(--med);  }
-  .badge-low    { background: var(--low-bg);   color: var(--low);  }
+  .badge-high   { background: var(--high-bg); color: var(--high); }
+  .badge-med    { background: var(--med-bg); color: var(--med);  }
+  .badge-low    { background: var(--low-bg); color: var(--low);  }
   .badge-neutral{ background: var(--surface2); color: var(--muted); }
 
   .filter-tabs {
@@ -387,7 +387,7 @@
 
           <!-- Flow info -->
           <div class="card">
-            <div class="card-head">🌐 Flow details</div>
+            <div class="card-head">🧊 Flow details</div>
             <div class="card-body">
               <div class="flow-grid">
                 <div class="flow-field">
@@ -450,7 +450,7 @@
 
           <!-- Recommendation -->
           <div class="card">
-            <div class="card-head">💡 Operator guidance</div>
+            <div class="card-head">🔧 Operator guidance</div>
             <div class="card-body">
               <div class="rec-options" id="d-rec-options"></div>
             </div>
@@ -835,8 +835,8 @@ async function decide(decision) {
       toast.className = 'mit-toast visible' + (ok ? '' : ' failed');
       toast.style.display = 'flex';
       toast.textContent = ok
-        ? `✓ DROP rule installed on s${d.mitigation.dpid} via ${d.mitigation.method} (cookie ${d.mitigation.rule_cookie})`
-        : `✗ Mitigation failed: ${d.mitigation.error}`;
+        ? `🟢  DROP rule installed on s${d.mitigation.dpid} via ${d.mitigation.method} (cookie ${d.mitigation.rule_cookie})`
+        : `🔴 Mitigation failed: ${d.mitigation.error}`;
     } else if (decision === 'monitor') {
       toast.className = 'mit-toast visible';
       toast.style.display = 'flex';
