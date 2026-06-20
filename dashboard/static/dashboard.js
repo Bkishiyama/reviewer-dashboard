@@ -933,15 +933,15 @@ window.Dashboard = {
 
 // Also expose the functions index.html calls directly (no namespace prefix)
 // These match the onclick="..." attributes written in index.html
-window.selectAlert      = selectAlert;
-window.decide           = decide;
-window.triggerScan      = triggerScan;
-window.verifyRules      = verifyRules;
-window.closeOverlay     = id => { const el = $(id); if (el) el.style.display = 'none'; };
-window.openMitLog       = openMitLog;
-window.exportCSV        = exportCSV;
-window.setTab           = setTab;
-window.toggleAudio      = toggleAudio;
+window.selectAlert = selectAlert;
+window.decide = decide;
+window.triggerScan = triggerScan;
+window.verifyRules = verifyRules;
+window.closeOverlay = id => { const el = $(id); if (el) el.style.display = 'none'; };
+window.openMitLog = openMitLog;
+window.exportCSV = exportCSV;
+window.setTab = setTab;
+window.toggleAudio = toggleAudio;
 window.toggleKeyboardHelp = toggleKeyboardHelp;
 
 // 24. Boot function
