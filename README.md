@@ -47,43 +47,44 @@ The project runs on **Ubuntu 20.04** with **Python 3.10**, **Mininet 2.3.1b4**, 
 ## Repository Structure
 
 ```
-.
-├── cli.py                        # Root CLI — all four tools
-├── Makefile                      # One-command reproducibility
+
+├── cli.py  # Root CLI 
+├── Makefile  # Reproducibility
 ├── requirements.txt
-├── install.sh                    # Ubuntu 20.04 system setup
+├── install.sh  # Ubuntu 20.04 setup
+├── install-22.04.sh  # Ubuntu 22.04 setup
 ├── config/
-│   ├── fed_config.yaml           # FL simulation parameters (Tools 1–2)
-│   └── hitl_config.yaml          # HITL thresholds and demo scenarios (Tool 4)
+│   ├── fed_config.yaml  # FL simulation parameters (Tools 1–2)
+│   └── hitl_config.yaml  # HITL thresholds and demo scenarios (Tool 4)
 ├── src/
 │   ├── __init__.py
-│   ├── features.py               # Flow feature extraction + preprocessing
-│   ├── local_train.py            # Isolation Forest training (Tool 1)
-│   ├── federated.py              # Federated aggregation (Tools 1–2)
-│   ├── detect.py                 # Anomaly scoring engine (Tool 1)
-│   ├── evaluate.py               # Metrics + confusion matrix (Tools 1–2)
-│   ├── sanitizer.py              # Z-score poisoning defense (Tool 2)
-│   ├── hitl.py                   # Alert dataclass + AlertQueue (Tool 4)
-│   └── explainer.py              # Human-readable alert text (Tool 4)
+│   ├── features.py  # Flow feature extraction and preprocessing
+│   ├── local_train.py  # For Isolation Forest training (Tool 1)
+│   ├── federated.py  # Federated aggregation (Tools 1–2)
+│   ├── detect.py  # Anomaly scoring engine (Tool 1)
+│   ├── evaluate.py  # Metrics & confusion matrix (Tools 1–2)
+│   ├── sanitizer.py  # Z-score poisoning defense (Tool 2)
+│   ├── hitl.py  # Alert dataclass and AlertQueue (Tool 4)
+│   └── explainer.py  # Human-readable alert text (Tool 4)
 ├── sdn_mininet/
-│   ├── topology.py               # Mininet topology (three switches, seven hosts)
-│   ├── ryu_collector.py          # Ryu controller + flow stats CSV writer
-│   ├── poisoned_host.py          # Tool 2 attack: upload inflated metric
-│   ├── injector.py               # Tool 3 attack: raw OpenFlow FlowMod injection
-│   ├── label_window.py           # Post-run CSV labeling by timestamp
-│   └── mitigator.py              # Tool 4: install / remove DROP rules
+│   ├── topology.py  # Mininet topology (three switches, seven hosts)
+│   ├── ryu_collector.py  # Ryu controller & flow stats CSV writer
+│   ├── poisoned_host.py  # Tool 2 attack: upload metric times 100
+│   ├── injector.py  # Tool 3 attack injection
+│   ├── label_window.py  # Post-run CSV labeling by timestamp
+│   └── mitigator.py  # Tool 4: install & remove DROP rules
 ├── dashboard/
-│   ├── app.py                    # Flask REST API server (port 5000)
-│   ├── templates/index.html      # Operator web UI
-│   └── static/dashboard.js      # Live polling, decision flow, keyboard nav
+│   ├── app.py  # Flask REST API server (port 5000)
+│   ├── templates/index.html  # Operator web UI
+│   └── static/dashboard.js  # Live polling, decision flow, keyboard nav
 ├── scripts/
-│   └── generate_data.py          # Synthetic flow data generator
-├── data/                         # Generated CSVs (git-ignored)
-├── models/                       # Trained model bundles (git-ignored)
-├── results/                      # Evaluation output + audit logs (git-ignored)
+│   └── generate_data.py  # Synthetic flow data generator
+├── data/  # Generated CSVs
+├── models/  # Trained model bundles 
+├── results/  # Evaluation output & audit logs
 ├── tests/
-│   └── test_sanitizer.py         # Tool 2 unit tests
-└── docs/                         # Architecture diagrams (.drawio.svg)
+│   └── test_sanitizer.py  # Tool 2 unit tests
+└── docs/ 
 ```
 GitHub MCV assisted  
 
