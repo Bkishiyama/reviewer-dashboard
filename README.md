@@ -95,15 +95,6 @@ GitHub MCV assisted
 ![Architecture Diagram](docs/sdn_fl_T4.svg)
 draw.io assisted
 
----
-
-## System Overview
-
-![Program Overview](docs/hitl.drawio.svg)
-draw.io assisted
-
----
-
 | Host | Role | Switch | IP |
 |------|------|--------|----|
 | h1 | Benign client (HTTP, iperf3) | s1 | 10.0.0.1 |
@@ -113,6 +104,13 @@ draw.io assisted
 | h5 | Benign client (ping keepalive) | s3 | 10.0.0.5 |
 | h6 | Port scanner / FL model poisoner | s3 | 10.0.0.6 |
 | h7 | FlowMod injector (Tool 3) | s1 | 10.0.0.7 |
+
+---
+
+## System Overview
+
+![Program Overview](docs/hitl.drawio.svg)
+draw.io assisted
 
 ---
 
