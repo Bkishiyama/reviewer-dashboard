@@ -1,35 +1,28 @@
 from __future__ import annotations
-
 #!/usr/bin/env python3
+
 """
 src/hitl.py — Human-in-the-Loop Alert Engine (Tool 4)
-
-This module is the core of Tool 4's human-centered security design.
-It sits between the anomaly detector (Tool 1/2) and SDN mitigation,
-requiring an operator to review and approve every security action.
-
+The program sits between the anomaly detector and SDN mitigation,
+requiring the user to review and approve every security action.
 Responsibilities:
 1. Receive detected anomalies from detect.py as Alert objects
-2. Enrich each alert with an explanation (via src/explainer.py)
-3. Queue alerts for operator review (thread-safe)
-4. Accept operator decisions: BLOCK, MONITOR, IGNORE
+2. Each alert gets an explanation via src/explainer.py
+3. Queue alerts for user to review 
+4. User will decide to BLOCK, MONITOR, or IGNORE
 5. Log every decision with a timestamp for audit
-
 Decision states:
-    PENDING  -> alert is waiting for operator review
-    APPROVED -> operator approved mitigation (triggers mitigator.py)
-    MONITOR  -> operator chose to watch but not block
-    IGNORED  -> operator dismissed the alert
-
-Usage (from cli.py or dashboard/app.py):
+    PENDING  -> alert is waiting for user to review
+    APPROVED -> user has approved mitigation that triggers mitigator.py
+    MONITOR  -> user will watch but not block
+    IGNORED  -> user dismisses the alert
+Usage from cli.py or dashboard/app.py:
     from src.hitl import AlertQueue, Alert, Decision
-
     queue = AlertQueue()
     alert = Alert.from_detection_row(row, model_bundle, flow_df)
     queue.push(alert)
-
-    # Operator reviews via dashboard, then:
-    queue.decide(alert.alert_id, Decision.APPROVED)
+    # User reviews via dashboard, then 
+    -> queue.decide(alert.alert_id, Decision.APPROVED)
 """
 
 import uuid
@@ -39,18 +32,14 @@ import logging
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
-
 import numpy as np
 import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-# ──────────────────────────────────────────────────────────────────────────────
 # Constants
-# ──────────────────────────────────────────────────────────────────────────────
-
 # Feature names that correspond to what features.py produces.
-# Used to build per-feature deviation explanations shown to the operator.
+# Used to build per-feature deviation explanations shown to the user.
 FEATURE_NAMES = [
     "bytes",
     "packets",
@@ -60,14 +49,14 @@ FEATURE_NAMES = [
     "protocol_enc",
 ]
 
-# Human-readable labels for each feature (shown in the dashboard alert panel).
+# Easy to read labels that user sees; explains each feature
 FEATURE_LABELS = {
-    "bytes":            "Total bytes transferred",
-    "packets":          "Packet count",
-    "duration":         "Flow duration (s)",
+    "bytes": "Total bytes transferred",
+    "packets": "Packet count",
+    "duration": "Flow duration (s)",
     "bytes_per_packet": "Bytes per packet",
-    "packet_rate":      "Packets per second",
-    "protocol_enc":     "Protocol (encoded)",
+    "packet_rate": "Packets per second",
+    "protocol_enc": "Protocol (encoded)",
 }
 
 # Severity thresholds based on anomaly score percentile rank (lower score = worse).
@@ -75,64 +64,57 @@ FEATURE_LABELS = {
 SEVERITY_HIGH   = 0.05   # top 5% most anomalous
 SEVERITY_MEDIUM = 0.15   # top 15%
 
-# ──────────────────────────────────────────────────────────────────────────────
 # Enums
-# ──────────────────────────────────────────────────────────────────────────────
+# User makes a decision as shown in the dashboard
+class Decision(str, Enum): 
+    PENDING = "pending"  # waiting for user to decide
+    APPROVED = "approved"  # block it or mitigate now
+    MONITOR = "monitor"  # monitor but do no block
+    IGNORED = "ignored"  # false positive, dismiss
 
-class Decision(str, Enum):
-    """Operator decision options shown in the dashboard."""
-    PENDING  = "pending"   # waiting for operator
-    APPROVED = "approved"  # block / mitigate now
-    MONITOR  = "monitor"   # continue watching, no block
-    IGNORED  = "ignored"   # false positive, dismiss
-
-
+# Alert severity level, derived from anomaly score rank
 class Severity(str, Enum):
-    """Alert severity level, derived from anomaly score rank."""
-    HIGH   = "high"
+    HIGH = "high"
     MEDIUM = "medium"
-    LOW    = "low"
+    LOW = "low"
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Alert dataclass
-# ──────────────────────────────────────────────────────────────────────────────
 
+"""  Alert dataclass
+Describes how much a single feature deviated from the learned baseline.
+Shown to the user as an explainability indicator.
+"""
 @dataclass
 class FeatureDeviation:
-    """
-    Describes how much a single feature deviated from the learned baseline.
-    Shown to the operator as an explainability indicator.
-    """
-    feature:      str    # internal feature name (e.g. "packet_rate")
-    label:        str    # human-readable label
-    flow_value:   float  # actual value observed in this flow
-    baseline_mean: float # mean value from training data
-    baseline_std:  float # std deviation from training data
-    z_score:      float  # how many std devs away from the mean
+    feature: str  # internal feature name (e.g. "packet_rate")
+    label:  str  # human-readable label
+    flow_value: float  # actual value observed in this flow
+    baseline_mean: float  # mean value from training data
+    baseline_std: float  # std deviation from training data
+    z_score: float  # how many std devs away from the mean
 
+    # Returns 'above' or 'below' baseline for display
     @property
-    def direction(self) -> str:
-        """Returns 'above' or 'below' baseline for display."""
+    def direction(self) -> str: 
         return "above" if self.flow_value > self.baseline_mean else "below"
 
+    # How many times the baseline mean this value is 
     @property
     def multiplier(self) -> float:
-        """How many times the baseline mean this value is (for display)."""
         if self.baseline_mean == 0:
             return 0.0
         return abs(self.flow_value / self.baseline_mean)
 
     def to_dict(self) -> dict:
         return {
-            "feature":       self.feature,
-            "label":         self.label,
-            "flow_value":    round(self.flow_value, 4),
+            "feature": self.feature,
+            "label": self.label,
+            "flow_value": round(self.flow_value, 4),
             "baseline_mean": round(self.baseline_mean, 4),
-            "baseline_std":  round(self.baseline_std, 4),
-            "z_score":       round(self.z_score, 2),
-            "direction":     self.direction,
-            "multiplier":    round(self.multiplier, 2),
+            "baseline_std": round(self.baseline_std, 4),
+            "z_score": round(self.z_score, 2),
+            "direction": self.direction,
+            "multiplier": round(self.multiplier, 2),
         }
 
 
