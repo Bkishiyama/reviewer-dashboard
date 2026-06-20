@@ -97,6 +97,8 @@ draw.io assisted
 
 ---
 
+## System Overview
+
 ![Program Overview](docs/hitl.drawio.svg)
 draw.io assisted
 
