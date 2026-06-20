@@ -114,6 +114,11 @@ draw.io assisted
 ![Program Overview](docs/hitl.drawio.svg)
 draw.io assisted
 
+### System Flow
+
+![System Flow](docs/HITLarchi.drawio.svg)
+draw.io assisted
+
 ---
 
 ## Installation
