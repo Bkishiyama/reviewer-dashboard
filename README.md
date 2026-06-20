@@ -501,6 +501,27 @@ make dashboard  # Tool 4 browser dashboard
 
 ---
 
+## Ubuntu 22.04
+
+The lab initially ran on Ubuntu 20.04 and still does. I set it up to run on Ubuntu 22.04 with Python 3.10.
+Most Python packages (numpy, pandas, scikit-learn, scapy, flask) install on both. The differences, however,
+are in the Mininet install path and the Ryu/eventlet version chain, which does not work well in 
+Python 3.10. So, a different install path is need to account for these changes.
+
+```bash
+chmod +x install-22.04.sh
+./install-22.04.sh
+```
+
+This will install Open vSwitch, Mininet, the Ryu SDN controller, hping3, nmap, iperf3, and the Python dependencies.
+Mininet `make install` has an egg conflict. The `setup.py` install creates legacy egg metadata in which the newer
+pip cannot parse. So, the 22.04 script removes this. I also made adjustments since Ryu does not run on Python 3.10
+by default. Ryu is installed with no dependencies, which causes errors, then installed with working ones. If you
+verify the install and it does not work, send me an email. I tested it in both Ubuntu 20.04 and 22.04 and get the
+expected results.
+
+---
+
 ## Makefile targets
 
 ### Tools 1–2
