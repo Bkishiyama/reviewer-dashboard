@@ -1,62 +1,44 @@
 from __future__ import annotations
-
 #!/usr/bin/env python3
-"""
-sdn_mininet/mitigator.py — SDN Mitigation Engine (Tool 4)
 
-This module executes the operator-approved mitigation action after a
-human reviews and approves an alert in the HITL dashboard.
-
-It is the "SDN Mitigation" component required by the assignment:
-  "Once approved, the system should demonstrate mitigation through
-   SDN control actions."
-
-Design: two-path approach
-─────────────────────────
-Path A — Ryu REST API (preferred, clean)
-  Sends a JSON request to the Ryu controller's existing REST API,
-  which in turn installs an OFPFlowMod on the target switch.
-  This is the right way to do SDN mitigation — through the controller.
-  Ryu's built-in ofctl_rest app exposes POST /stats/flowentry/add.
-
-Path B — Raw OpenFlow socket (fallback)
-  If the Ryu REST endpoint is not reachable (e.g. ryu_collector.py is
-  not running or ofctl_rest is not loaded), mitigator.py falls back to
-  the same raw OpenFlow approach used in injector.py: connect directly
-  to the switch's passive listener (ptcp:6654 on s1) and send a binary
-  FlowMod message.
-
-  This fallback deliberately reuses the OFP constants and packet-builder
-  functions from injector.py to keep the two files consistent. It is NOT
-  the Tool 3 attack — the cookie, priority, and log messages clearly
-  distinguish a legitimate HITL mitigation from the rogue injection.
-
-Actions supported
-─────────────────
-  BLOCK    — install a permanent DROP rule for the offending src IP
-  THROTTLE — install a rate-limiting rule (meter-based, if switch supports it;
-              otherwise falls back to a lower-priority DROP with short idle timeout)
-  UNBLOCK  — delete a previously installed DROP rule for a src IP
-
+""" sdn_mininet/mitigator.py
+SDN Mitigation Engine (Tool 4)
+Purpose: This module executes the operator-approved mitigation action after the user
+reviews and approves an alert in the HITL dashboard. Once the user approves the action,
+the system mitigates the SDN control actions.
+The design is a two-path approach
+Path A: Ryu REST API
+Sends a JSON request to Ryu controller's REST API. In turn, installs an OFPFlowMod on 
+the target switch. This is the preferred way to do SDN mitigation, i.e., through the 
+controller. Ryu's built-in ofctl_rest app exposes POST /stats/flowentry/add.
+Path B: Raw OpenFlow socket
+If the Ryu REST endpoint is not reachable, e.g. ryu_collector.py is not running or 
+ofctl_rest is not loaded, mitigator.py falls back to the same raw OpenFlow approach 
+used in injector.py. It will connect directly to the switch's passive listener 
+(ptcp:6654 on s1) and send a binary FlowMod message. This fallback reuses the OFP 
+constants and packet-builder functions from injector.py. It is NOT the Tool 3 attack,
+the cookie, priority, and log messages are clearly seen as a legitimate HITL 
+mitigation from the rogue injection.
+Actions:
+  BLOCK: install a permanent DROP rule for the offending src IP
+  THROTTLE: install a rate-limiting rule (meter-based, if switch supports it;
+  otherwise falls back to a lower-priority DROP with short idle timeout)
+  UNBLOCK: delete a previously installed DROP rule for a src IP
 Mitigation log
-──────────────
-Every action (success or failure) is appended to results/mitigator.log
+Every action, success or failure, is added to results/mitigator.log
 so the operator has a full audit trail of every SDN change made by Tool 4.
-
 Usage (called by dashboard/app.py after operator approves an alert):
     from sdn_mininet.mitigator import Mitigator, MitigationResult
-
     m = Mitigator()
     result = m.block(
-        src_ip   = "10.0.0.4",
+        src_ip = "10.0.0.4",
         dst_port = 80,
         protocol = "tcp",
-        dpid     = 1,
+        dpid = 1,
         alert_id = "a1b2c3d4",
     )
     print(result.summary())
 """
-
 
 import json
 import logging
@@ -72,97 +54,92 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-# ──────────────────────────────────────────────────────────────────────────────
 # Configuration — mirrors topology.py and ryu_collector.py
-# ──────────────────────────────────────────────────────────────────────────────
 
 # Ryu REST API (ofctl_rest app, standard port)
 RYU_REST_HOST = os.environ.get("RYU_REST_HOST", "127.0.0.1")
 RYU_REST_PORT = int(os.environ.get("RYU_REST_PORT", "8080"))
 
-# OVS passive listener — topology.py sets ptcp:6654 on s1
+# OVS passive listener, topology.py sets ptcp:6654 on s1
 OVS_SWITCH_IP   = os.environ.get("OVS_SWITCH_IP",   "127.0.0.1")
 OVS_SWITCH_PORT = int(os.environ.get("OVS_SWITCH_PORT", "6654"))
 
 # Flow rule parameters for HITL mitigations
-HITL_COOKIE     = 0xFEEDFACECAFE0004   # identifies Tool 4 rules in ovs-ofctl output
-HITL_PRIORITY   = 30000                # below injector.py (40000) but above normal (1)
-IDLE_TIMEOUT_S  = 300                  # 5-minute idle timeout on BLOCK rules
-HARD_TIMEOUT_S  = 0                    # no hard timeout by default
+HITL_COOKIE = 0xFEEDFACECAFE0004  # identifies Tool 4 rules in ovs-ofctl output
+HITL_PRIORITY = 30000  # below injector.py (40000) but above normal (1)
+IDLE_TIMEOUT_S = 300  # 5-minute idle timeout on BLOCK rules
+HARD_TIMEOUT_S = 0  # no hard timeout by default
 
 # Audit log path
 MITIGATION_LOG_PATH = os.environ.get(
     "MITIGATION_LOG_PATH", "results/mitigator.log"
 )
 
-# OpenFlow 1.3 constants (kept consistent with injector.py)
-OFP_VERSION        = 0x04
-OFPT_HELLO         = 0
+# OpenFlow 1.3 constants; consistent with injector.py
+OFP_VERSION = 0x04
+OFPT_HELLO = 0
 OFPT_FEATURES_REQUEST = 5
-OFPT_FEATURES_REPLY   = 6
-OFPT_FLOW_MOD      = 14
-OFPT_ROLE_REQUEST  = 24
-OFPT_ROLE_REPLY    = 25
-OFPFC_ADD          = 0
-OFPFC_DELETE       = 3
-OFPFC_DELETE_STRICT= 4
-OFPMT_OXM          = 1
+OFPT_FEATURES_REPLY = 6
+OFPT_FLOW_MOD = 14
+OFPT_ROLE_REQUEST = 24
+OFPT_ROLE_REPLY = 25
+OFPFC_ADD = 0
+OFPFC_DELETE = 3
+OFPFC_DELETE_STRICT = 4
+OFPMT_OXM = 1
 OFPXMC_OPENFLOW_BASIC = 0x8000
 OXM_FIELD_ETH_TYPE = 5
 OXM_FIELD_IP_PROTO = 10
 OXM_FIELD_IPV4_SRC = 11
-OXM_FIELD_TCP_DST  = 14
-OXM_FIELD_UDP_DST  = 16
-OFPP_ANY           = 0xFFFFFFFF
-OFPG_ANY           = 0xFFFFFFFF
-OFP_NO_BUFFER      = 0xFFFFFFFF
-OFPCR_ROLE_EQUAL   = 1
+OXM_FIELD_TCP_DST = 14
+OXM_FIELD_UDP_DST = 16
+OFPP_ANY = 0xFFFFFFFF
+OFPG_ANY = 0xFFFFFFFF
+OFP_NO_BUFFER = 0xFFFFFFFF
+OFPCR_ROLE_EQUAL = 1
 
 # IP protocol numbers
-PROTO_TCP  = 6
-PROTO_UDP  = 17
+PROTO_TCP = 6
+PROTO_UDP = 17
 PROTO_ICMP = 1
 
 PROTOCOL_MAP = {
-    "tcp":      PROTO_TCP,
-    "udp":      PROTO_UDP,
-    "icmp":     PROTO_ICMP,
+    "tcp": PROTO_TCP,
+    "udp": PROTO_UDP,
+    "icmp": PROTO_ICMP,
     "ethernet": PROTO_TCP,   # fallback for L2-only collector rows
 }
 
 
-# ──────────────────────────────────────────────────────────────────────────────
 # Result dataclass
-# ──────────────────────────────────────────────────────────────────────────────
 
 class MitigationAction(str, Enum):
-    BLOCK    = "block"
+    BLOCK = "block"
     THROTTLE = "throttle"
-    UNBLOCK  = "unblock"
+    UNBLOCK = "unblock"
 
 
 class MitigationStatus(str, Enum):
-    SUCCESS    = "success"
-    FAILED     = "failed"
-    SKIPPED    = "skipped"   # e.g. IP already blocked
+    SUCCESS = "success"
+    FAILED = "failed"
+    SKIPPED = "skipped"  # e.g. IP already blocked
 
-
+"""
+Record of one mitigation attempt, written to the audit log and
+returned to the dashboard for display.
+"""
 @dataclass
 class MitigationResult:
-    """
-    Record of one mitigation attempt, written to the audit log and
-    returned to the dashboard for display.
-    """
-    alert_id:   str
-    action:     MitigationAction
-    status:     MitigationStatus
-    src_ip:     str
-    dst_port:   int
-    protocol:   str
-    dpid:       int
-    method:     str                 # "ryu_rest" or "raw_openflow"
-    timestamp:  float = field(default_factory=time.time)
-    error:      Optional[str] = None
+    alert_id: str
+    action: MitigationAction
+    status: MitigationStatus
+    src_ip: str
+    dst_port: int
+    protocol: str
+    dpid: int
+    method: str   # "ryu_rest" or "raw_openflow"
+    timestamp: float = field(default_factory=time.time)
+    error: Optional[str] = None
     rule_cookie: int = HITL_COOKIE
 
     @property
@@ -170,7 +147,7 @@ class MitigationResult:
         return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(self.timestamp))
 
     def summary(self) -> str:
-        ok = "✓" if self.status == MitigationStatus.SUCCESS else "✗"
+        ok = "🟢" if self.status == MitigationStatus.SUCCESS else "🔴"
         return (
             f"[{ok}] {self.action.value.upper()} {self.src_ip} "
             f"→ port {self.dst_port}/{self.protocol} "
@@ -178,158 +155,145 @@ class MitigationResult:
             f"via {self.method} "
             f"[alert={self.alert_id}] "
             f"at {self.timestamp_str}"
-            + (f" — ERROR: {self.error}" if self.error else "")
+            + (f" - ERROR: {self.error}" if self.error else "")
         )
 
     def to_dict(self) -> dict:
         return {
-            "alert_id":    self.alert_id,
-            "action":      self.action.value,
-            "status":      self.status.value,
-            "src_ip":      self.src_ip,
-            "dst_port":    self.dst_port,
-            "protocol":    self.protocol,
-            "dpid":        self.dpid,
-            "method":      self.method,
-            "timestamp":   self.timestamp,
+            "alert_id": self.alert_id,
+            "action": self.action.value,
+            "status": self.status.value,
+            "src_ip": self.src_ip,
+            "dst_port": self.dst_port,
+            "protocol": self.protocol,
+            "dpid": self.dpid,
+            "method": self.method,
+            "timestamp": self.timestamp,
             "timestamp_str": self.timestamp_str,
-            "error":       self.error,
+            "error": self.error,
             "rule_cookie": hex(self.rule_cookie),
         }
 
 
-# ──────────────────────────────────────────────────────────────────────────────
 # Mitigator class
-# ──────────────────────────────────────────────────────────────────────────────
-
+"""
+Executes SDN mitigation actions on behalf of the HITL dashboard. Tries the Ryu REST API first. 
+If that fails, due to controller not running, ofctl_rest not loaded, network error, falls back 
+to a raw OpenFlow socket connection to the switch's passive listener.
+"""
 class Mitigator:
-    """
-    Executes SDN mitigation actions on behalf of the HITL dashboard.
-
-    Tries the Ryu REST API first. If that fails (controller not running,
-    ofctl_rest not loaded, network error), falls back to a raw OpenFlow
-    socket connection to the switch's passive listener.
-    """
-
     def __init__(
         self,
-        ryu_host:    str = RYU_REST_HOST,
-        ryu_port:    int = RYU_REST_PORT,
-        ovs_ip:      str = OVS_SWITCH_IP,
-        ovs_port:    int = OVS_SWITCH_PORT,
-        log_path:    str = MITIGATION_LOG_PATH,
+        ryu_host: str = RYU_REST_HOST,
+        ryu_port: int = RYU_REST_PORT,
+        ovs_ip: str = OVS_SWITCH_IP,
+        ovs_port: int = OVS_SWITCH_PORT,
+        log_path: str = MITIGATION_LOG_PATH,
         prefer_rest: bool = True,
     ):
-        self.ryu_host    = ryu_host
-        self.ryu_port    = ryu_port
-        self.ovs_ip      = ovs_ip
-        self.ovs_port    = ovs_port
-        self.log_path    = log_path
+        self.ryu_host = ryu_host
+        self.ryu_port = ryu_port
+        self.ovs_ip = ovs_ip
+        self.ovs_port = ovs_port
+        self.log_path = log_path
         self.prefer_rest = prefer_rest
 
         os.makedirs(os.path.dirname(log_path) or ".", exist_ok=True)
 
-    # ── Public API ────────────────────────────────────────────────────────────
-
+    
+    """  Public API 
+    Install a DROP flow rule for traffic from src_ip to dst_port.
+    The rule is permanent (idle_timeout=IDLE_TIMEOUT_S, hard_timeout=0)
+    and carries HITL_COOKIE so it can be identified in:
+    ovs-ofctl dump-flows s1 -O OpenFlow13
+    Priority is HITL_PRIORITY (30000) and above normal forwarding rules
+    (priority 1) but below the Tool 3 rogue injection (priority 40000),
+    so a HITL block can be overridden in demos without changing constants.
+    """
     def block(
         self,
-        src_ip:   str,
+        src_ip: str,
         dst_port: int,
         protocol: str,
-        dpid:     int,
+        dpid: int,
         alert_id: str,
     ) -> MitigationResult:
-        """
-        Install a DROP flow rule for traffic from src_ip to dst_port.
-
-        The rule is permanent (idle_timeout=IDLE_TIMEOUT_S, hard_timeout=0)
-        and carries HITL_COOKIE so it can be identified in:
-            ovs-ofctl dump-flows s1 -O OpenFlow13
-
-        Priority is HITL_PRIORITY (30000) — above normal forwarding rules
-        (priority 1) but below the Tool 3 rogue injection (priority 40000),
-        so a HITL block can be overridden in demos without changing constants.
-        """
         logger.info(
             "[Mitigator] BLOCK requested: src=%s dst_port=%d proto=%s dpid=%d alert=%s",
             src_ip, dst_port, protocol, dpid, alert_id,
         )
 
         result = self._execute(
-            action   = MitigationAction.BLOCK,
-            src_ip   = src_ip,
+            action = MitigationAction.BLOCK,
+            src_ip = src_ip,
             dst_port = dst_port,
             protocol = protocol,
-            dpid     = dpid,
+            dpid = dpid,
             alert_id = alert_id,
-            command  = OFPFC_ADD,
+            command = OFPFC_ADD,
         )
         self._log(result)
         return result
 
+    """
+    Install a short-lived DROP rule, idle_timeout=60s, as a traffic throttle. 
+    The rule expires if traffic stops, so it self-cleans. Note: True rate limiting 
+    requires meter support, OF 1.3 meters. OVS in Mininet supports meters but the 
+    current topology does not configure them, so this is implemented as a time-limited DROP.
+    The dashboard labels this "throttle" to distinguish it from a permanent block.
+    """
     def throttle(
         self,
-        src_ip:   str,
+        src_ip: str,
         dst_port: int,
         protocol: str,
-        dpid:     int,
+        dpid: int,
         alert_id: str,
     ) -> MitigationResult:
-        """
-        Install a short-lived DROP rule (idle_timeout=60s) as a traffic
-        throttle. The rule expires if traffic stops, so it self-cleans.
-
-        Note: True rate limiting requires meter support (OF 1.3 meters).
-        OVS in Mininet supports meters but the current topology does not
-        configure them, so this is implemented as a time-limited DROP.
-        The dashboard labels this "throttle" to distinguish it from a
-        permanent block.
-        """
         logger.info(
             "[Mitigator] THROTTLE requested: src=%s dst_port=%d proto=%s dpid=%d alert=%s",
             src_ip, dst_port, protocol, dpid, alert_id,
         )
 
         result = self._execute(
-            action      = MitigationAction.THROTTLE,
-            src_ip      = src_ip,
-            dst_port    = dst_port,
-            protocol    = protocol,
-            dpid        = dpid,
-            alert_id    = alert_id,
-            command     = OFPFC_ADD,
+            action = MitigationAction.THROTTLE,
+            src_ip = src_ip,
+            dst_port = dst_port,
+            protocol = protocol,
+            dpid = dpid,
+            alert_id = alert_id,
+            command = OFPFC_ADD,
             idle_timeout= 60,
         )
         self._log(result)
         return result
 
+    """
+    Remove a previously installed BLOCK or THROTTLE rule for src_ip.
+    Uses OFPFC_DELETE_STRICT with the HITL_COOKIE to avoid accidentally
+    deleting normal forwarding rules that happen to match the same fields.
+    """
     def unblock(
         self,
-        src_ip:   str,
+        src_ip: str,
         dst_port: int,
         protocol: str,
-        dpid:     int,
+        dpid: int,
         alert_id: str,
     ) -> MitigationResult:
-        """
-        Remove a previously installed BLOCK or THROTTLE rule for src_ip.
-
-        Uses OFPFC_DELETE_STRICT with the HITL_COOKIE to avoid accidentally
-        deleting normal forwarding rules that happen to match the same fields.
-        """
         logger.info(
             "[Mitigator] UNBLOCK requested: src=%s dst_port=%d dpid=%d alert=%s",
             src_ip, dst_port, dpid, alert_id,
         )
 
         result = self._execute(
-            action   = MitigationAction.UNBLOCK,
-            src_ip   = src_ip,
+            action = MitigationAction.UNBLOCK,
+            src_ip = src_ip,
             dst_port = dst_port,
             protocol = protocol,
-            dpid     = dpid,
+            dpid = dpid,
             alert_id = alert_id,
-            command  = OFPFC_DELETE_STRICT,
+            command = OFPFC_DELETE_STRICT,
         )
         self._log(result)
         return result
