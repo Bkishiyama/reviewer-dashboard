@@ -245,17 +245,16 @@ def _match_flow_table_exhaustion(
     )
     return True, "Potential flow table exhaustion attack", detail
 
-
+"""
+Control-plane probe signature: traffic directed at OpenFlow ports (6633, 6653). 
+In the Tool 3 injector, this is relevant as any host probing the controller port 
+should be flagged immediately.
+"""
 def _match_control_plane_probe(
     dst_port: int,
     protocol: str,
     all_devs: list[FeatureDeviation],
 ) -> tuple[bool, str, str]:
-    """
-    Control-plane probe signature: traffic directed at OpenFlow ports
-    (6633, 6653). In the Tool 3 injector scenario this is highly relevant —
-    any host probing the controller port should be flagged immediately.
-    """
     if dst_port not in {6633, 6653}:
         return False, "", ""
 
@@ -272,17 +271,16 @@ def _match_control_plane_probe(
     )
     return True, "Control-plane probe — OpenFlow port targeted", detail
 
-
+"""
+Catch-all for anomalous traffic to sensitive service ports when no specific attack pattern matched. 
+Adds port context to the explanation. Only for MEDIUM or HIGH severity alerts to avoid noise.
+"""
 def _match_sensitive_port(
     dst_port: int,
     protocol: str,
     severity: Severity,
 ) -> tuple[bool, str, str]:
-    """
-    Catch-all for anomalous traffic to sensitive service ports when no
-    specific attack pattern matched. Adds port context to the explanation.
-    Only fires for MEDIUM or HIGH severity alerts to avoid noise.
-    """
+
     if dst_port not in SENSITIVE_PORTS:
         return False, "", ""
     if severity == Severity.LOW:
@@ -297,9 +295,7 @@ def _match_sensitive_port(
     return True, f"Anomalous traffic to {_port_label(dst_port)}", detail
 
 
-# ──────────────────────────────────────────────────────────────────────────────
 # Severity header lines
-# ──────────────────────────────────────────────────────────────────────────────
 
 _SEVERITY_HEADERS: dict[Severity, str] = {
     Severity.HIGH:   "HIGH SEVERITY — immediate review recommended",
@@ -308,16 +304,39 @@ _SEVERITY_HEADERS: dict[Severity, str] = {
 }
 
 _SEVERITY_ICONS: dict[Severity, str] = {
-    Severity.HIGH:   "⚠",
+    Severity.HIGH: "⚠",
     Severity.MEDIUM: "⚡",
-    Severity.LOW:    "ℹ",
+    Severity.LOW: "ℹ",
 }
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Public API
-# ──────────────────────────────────────────────────────────────────────────────
 
+"""  Public API
+Generates understandable explanation shown in the operator dashboard.
+The explanation structured:
+[severity icon + header]
+[attack pattern name, if a known pattern matched]
+[one to two sentences describing the specific indicators]
+[feature breakdown, i.e., top deviating features with Z-scores]
+Parameters
+top_devs : list[FeatureDeviation]
+  The top 1–3 most-deviating features (pre-sorted by |Z-score|),
+  as computed in hitl.py's Alert.from_detection_row().
+severity : Severity
+  Alert severity (HIGH / MEDIUM / LOW).
+protocol : str
+  Protocol string from the flow row (e.g. "tcp", "udp", "icmp").
+dst_port : int
+  Destination port of the anomalous flow.
+src_port : int
+  Source port of the anomalous flow.
+all_devs : list[FeatureDeviation], optional
+  Full list of all feature deviations (not just the top 3).
+  Used by pattern matchers that need to check features not in top_devs.
+  If None, top_devs is used for matching too.
+Returns str
+  Multi-line explanation text, suitable for display in the dashboard alert detail panel.
+"""
 def build_explanation(
     top_devs: list[FeatureDeviation],
     severity: Severity,
@@ -326,51 +345,17 @@ def build_explanation(
     src_port: int = 0,
     all_devs: Optional[list[FeatureDeviation]] = None,
 ) -> str:
-    """
-    Generate the plain-English explanation shown in the operator dashboard.
-
-    The explanation is structured as:
-      [severity icon + header]
-      [attack pattern name — if a known pattern matched]
-      [one to two sentences describing the specific indicators]
-      [feature breakdown — top deviating features with Z-scores]
-
-    Parameters
-    ----------
-    top_devs : list[FeatureDeviation]
-        The top 1–3 most-deviating features (pre-sorted by |Z-score|),
-        as computed in hitl.py's Alert.from_detection_row().
-    severity : Severity
-        Alert severity (HIGH / MEDIUM / LOW).
-    protocol : str
-        Protocol string from the flow row (e.g. "tcp", "udp", "icmp").
-    dst_port : int
-        Destination port of the anomalous flow.
-    src_port : int
-        Source port of the anomalous flow.
-    all_devs : list[FeatureDeviation], optional
-        Full list of all feature deviations (not just the top 3).
-        Used by pattern matchers that need to check features not in top_devs.
-        If None, top_devs is used for matching too.
-
-    Returns
-    -------
-    str
-        Multi-line explanation text, suitable for display in the dashboard
-        alert detail panel.
-    """
     devs_for_matching = all_devs if all_devs is not None else top_devs
     proto = (protocol or "").strip().lower()
-
-    icon   = _SEVERITY_ICONS[severity]
+    icon = _SEVERITY_ICONS[severity]
     header = _SEVERITY_HEADERS[severity]
 
-    # ── Layer 1: pattern matching ─────────────────────────────────────────────
+    # Layer 1: pattern matching
 
     pattern_name = ""
     pattern_detail = ""
 
-    # Control-plane probe check first — highest priority
+    # Control-plane probe check first, highest priority
     matched, pattern_name, pattern_detail = _match_control_plane_probe(
         dst_port, proto, devs_for_matching
     )
@@ -395,18 +380,15 @@ def build_explanation(
             dst_port, proto, severity
         )
 
-    # ── Layer 2: feature-driven fallback ─────────────────────────────────────
-
+    # Layer 2: feature-driven fallback
     if not matched or not pattern_detail:
-        pattern_name   = "Anomalous traffic pattern"
+        pattern_name = "Anomalous traffic pattern"
         pattern_detail = _feature_fallback(top_devs, proto, dst_port)
 
-    # ── Build feature breakdown section ──────────────────────────────────────
-
+    # Build feature breakdown section 
     feature_lines = _build_feature_breakdown(top_devs)
 
-    # ── Assemble final text ───────────────────────────────────────────────────
-
+    # Assemble final text
     parts = [
         f"{icon}  {header}",
         f"",
@@ -430,38 +412,30 @@ def build_explanation(
 
     return explanation
 
-
+"""
+Generate the user recommendation shown with the explanation. The recommendation 
+has three choices. Decision enum values in hitl.py, so the operator knows exactly what
+each button in the dashboard will do.
+Parameters
+severity : Severity
+  Alert severity.
+protocol : str
+  Flow protocol.
+dst_port : int
+  Destination port of the anomalous flow.
+src_ip : str
+  Source IP of the anomalous flow
+Returns str
+ Plain-English recommendation with three labeled options.
+"""
 def build_recommendation(
     severity: Severity,
     protocol: str,
     dst_port: int = 0,
     src_ip: str = "",
 ) -> str:
-    """
-    Generate the operator recommendation shown alongside the explanation.
-
-    The recommendation presents three concrete choices — matching the three
-    Decision enum values in hitl.py — so the operator knows exactly what
-    each button in the dashboard will do.
-
-    Parameters
-    ----------
-    severity : Severity
-        Alert severity.
-    protocol : str
-        Flow protocol.
-    dst_port : int
-        Destination port of the anomalous flow.
-    src_ip : str
-        Source IP of the anomalous flow (used to personalise the message).
-
-    Returns
-    -------
-    str
-        Plain-English recommendation with three clearly labelled options.
-    """
-    proto    = (protocol or "").strip().lower()
-    src_str  = f"host {src_ip}" if src_ip and src_ip != "unknown" else "the source host"
+    proto = (protocol or "").strip().lower()
+    src_str = f"host {src_ip}" if src_ip and src_ip != "unknown" else "the source host"
     port_str = _port_label(dst_port) if dst_port > 0 else "the target"
 
     # Control-plane probe → always recommend immediate block
@@ -515,22 +489,18 @@ def build_recommendation(
     )
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Internal formatting helpers
-# ──────────────────────────────────────────────────────────────────────────────
 
+"""  Internal formatting helpers
+Build the bulleted list of feature deviations shown at the bottom of
+every explanation, regardless of which pattern matched.
+Format per line:
+  - [feature label]: [value] ([X.Xσ above/below baseline])
+"""
 def _build_feature_breakdown(top_devs: list[FeatureDeviation]) -> list[str]:
-    """
-    Build the bulleted list of feature deviations shown at the bottom of
-    every explanation, regardless of which pattern matched.
-
-    Format per line:
-      - [feature label]: [value] ([X.Xσ above/below baseline])
-    """
     lines = []
     for dev in top_devs:
         direction = dev.direction
-        z_abs     = abs(dev.z_score)
+        z_abs = abs(dev.z_score)
 
         # Choose intensity word based on Z-score magnitude
         if z_abs >= 4.0:
@@ -556,16 +526,16 @@ def _build_feature_breakdown(top_devs: list[FeatureDeviation]) -> list[str]:
 
     return lines
 
-
+"""
+Build a generic explanation when no specific attack pattern matched.
+Describes the top features without guessing attack type.
+"""
 def _feature_fallback(
     top_devs: list[FeatureDeviation],
     protocol: str,
     dst_port: int,
 ) -> str:
-    """
-    Build a generic explanation when no specific attack pattern matched.
-    Describes the top features in plain English without guessing attack type.
-    """
+
     if not top_devs:
         return (
             "The Isolation Forest model flagged this flow as anomalous, "
@@ -579,7 +549,7 @@ def _feature_fallback(
     # Pick the most deviant feature and describe it specifically
     top = top_devs[0]
     direction = top.direction
-    z_abs     = abs(top.z_score)
+    z_abs = abs(top.z_score)
 
     if z_abs >= 3.0:
         degree = "dramatically"
@@ -610,35 +580,26 @@ def _feature_fallback(
     return lead
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Standalone formatting utility (used by dashboard and CLI report)
-# ──────────────────────────────────────────────────────────────────────────────
 
+
+"""  Standalone formatting utility used by dashboard and CLI report
+Format an Alert as a multi-section CLI report for the terminal.
+Designed for the `python3 cli.py hitl` command's output; gives the
+user a clear, readable summary without needing the web dashboard.
+Parameters
+alert : Alert
+  A fully-constructed Alert object from hitl.py.
+Returns str
+  Formatted multi-line string ready to print to stdout.
+"""
 def format_alert_for_cli(alert) -> str:
-    """
-    Format an Alert as a multi-section CLI report for the terminal.
-
-    Designed for the `python3 cli.py hitl` command's output — gives the
-    operator a clear, readable summary without needing the web dashboard.
-
-    Parameters
-    ----------
-    alert : Alert
-        A fully-constructed Alert object from hitl.py.
-
-    Returns
-    -------
-    str
-        Formatted multi-line string ready to print to stdout.
-    """
-
     SEP  = "─" * 60
     SEP2 = "═" * 60
 
     sev_colour = {
-        Severity.HIGH:   "\033[91m",  # red
+        Severity.HIGH: "\033[91m",  # red
         Severity.MEDIUM: "\033[93m",  # yellow
-        Severity.LOW:    "\033[94m",  # blue
+        Severity.LOW: "\033[94m",  # blue
     }.get(alert.severity, "")
     RESET = "\033[0m"
 
@@ -647,12 +608,12 @@ def format_alert_for_cli(alert) -> str:
         f"{sev_colour}ALERT {alert.alert_id}  |  {alert.severity.value.upper()}  |  "
         f"confidence {alert.confidence_pct:.0f}%{RESET}",
         SEP2,
-        f"  Source      : {alert.src_ip}:{alert.src_port}",
+        f"  Source : {alert.src_ip}:{alert.src_port}",
         f"  Destination : {alert.dst_ip}:{alert.dst_port}",
-        f"  Protocol    : {alert.protocol.upper() if alert.protocol else 'unknown'}",
-        f"  Flow stats  : {alert.bytes:,} bytes | {alert.packets:,} packets "
+        f"  Protocol : {alert.protocol.upper() if alert.protocol else 'unknown'}",
+        f"  Flow stats : {alert.bytes:,} bytes | {alert.packets:,} packets "
         f"| {alert.duration:.4f}s",
-        f"  Score       : {alert.anomaly_score:.4f}  (rank {alert.anomaly_rank}/{alert.batch_size})",
+        f"  Score : {alert.anomaly_score:.4f}  (rank {alert.anomaly_rank}/{alert.batch_size})",
         SEP,
         "EXPLANATION",
         SEP,
@@ -668,15 +629,12 @@ def format_alert_for_cli(alert) -> str:
 
     return "\n".join(lines)
 
-
+"""
+Single-line summary of an alert for use in the CLI listing view when multiple alerts are displayed together.
+Example:
+  [a1b2c3d4] HIGH   95%  192.168.1.50 → 10.0.0.1:80   Potential DDoS
+"""
 def format_alert_summary_line(alert) -> str:
-    """
-    Single-line summary of an alert — used in the CLI listing view
-    when multiple alerts are displayed together.
-
-    Example:
-      [a1b2c3d4] HIGH   95%  192.168.1.50 → 10.0.0.1:80   Potential DDoS
-    """
     sev_label = f"{'HIGH' if alert.severity == Severity.HIGH else alert.severity.value.upper():<6}"
 
     # Extract the detection pattern name from the first line of the explanation
