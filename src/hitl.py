@@ -118,37 +118,33 @@ class FeatureDeviation:
         }
 
 
+# A suspicious flow event, with explanation data, queued for an operator's review and decision.
 @dataclass
 class Alert:
-    """
-    A single suspicious flow event, enriched with explanation data,
-    queued for an operator's review and decision.
-    """
-
     # Unique identifier for this alert
     alert_id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
 
-    # When the alert was created (Unix timestamp)
+    # Timestamp when the alert was created
     created_at: float = field(default_factory=time.time)
 
     # Core detection results from detect.py
-    anomaly_score:  float = 0.0   # raw Isolation Forest score (lower = worse)
-    anomaly_rank:   int   = 0     # rank within batch (1 = most anomalous)
-    batch_size:     int   = 1     # total flows in the scored batch
-    confidence_pct: float = 0.0   # derived confidence percentage (0–100)
-    severity:       Severity = Severity.LOW
+    anomaly_score: float = 0.0  # raw Isolation Forest score (lower = worse)
+    anomaly_rank: int = 0  # rank within batch (1 = most anomalous)
+    batch_size: int = 1  # total flows in the scored batch
+    confidence_pct: float = 0.0  # derived confidence percentage (0–100)
+    severity: Severity = Severity.LOW
 
     # Flow identifiers (for display and for mitigator.py to target)
-    src_ip:   str = ""
-    dst_ip:   str = ""
+    src_ip: str = ""
+    dst_ip: str = ""
     src_port: int = 0
     dst_port: int = 0
     protocol: str = ""
-    dpid:     int = 0   # OpenFlow switch datapath ID (0 if unknown)
+    dpid: int = 0  # OpenFlow switch datapath ID or 0 if unknown
 
-    # Raw flow stats (for context in the dashboard)
-    bytes:    int   = 0
-    packets:  int   = 0
+    # Raw flow stats for context in the dashboard
+    bytes: int = 0
+    packets: int = 0
     duration: float = 0.0
 
     # Explanation: which features contributed most to the anomaly
@@ -160,13 +156,12 @@ class Alert:
     # Suggested action text shown to the operator
     recommendation: str = ""
 
-    # Operator decision (updated by AlertQueue.decide())
-    decision:    Decision = Decision.PENDING
-    decided_at:  Optional[float] = None
-    decided_by:  str = "operator"   # future: could be a username
+    # Operator decision; updated by AlertQueue.decide()
+    decision: Decision = Decision.PENDING
+    decided_at: Optional[float] = None
+    decided_by: str = "operator"   # future: could be a username
 
-    # ── Constructors ──────────────────────────────────────────────────────────
-
+    # Constructors 
     @classmethod
     def from_detection_row(
         cls,
@@ -176,7 +171,6 @@ class Alert:
     ) -> "Alert":
         """
         Build an Alert from a single row of detect.py's output DataFrame.
-
         Parameters
         ----------
         row : pd.Series
@@ -190,13 +184,13 @@ class Alert:
             to normalise the rank into a confidence percentage).
         """
 
-        batch_size  = len(batch_df)
-        score       = float(row.get("anomaly_score", 0.0))
-        rank        = int(row.get("anomaly_rank",    1))
+        batch_size = len(batch_df)
+        score = float(row.get("anomaly_score", 0.0))
+        rank = int(row.get("anomaly_rank", 1))
 
         # Confidence: flows ranked in the bottom 5% are most suspicious.
         # Map rank percentile to a 0–100 confidence score.
-        rank_pct   = rank / max(batch_size, 1)          # 0 (most anomalous) → 1
+        rank_pct = rank / max(batch_size, 1)  # 0 (most anomalous) -> 1
         confidence = round((1.0 - rank_pct) * 100, 1)  # flip: low rank = high confidence
 
         # Severity bucketing
@@ -207,49 +201,49 @@ class Alert:
         else:
             severity = Severity.LOW
 
-        # Extract flow identity fields (fall back gracefully if columns missing)
-        src_ip   = str(row.get("src_ip",   "unknown"))
-        dst_ip   = str(row.get("dst_ip",   "unknown"))
+        # Extract flow identity fields 
+        src_ip = str(row.get("src_ip", "unknown"))
+        dst_ip = str(row.get("dst_ip", "unknown"))
         src_port = int(row.get("src_port", 0))
         dst_port = int(row.get("dst_port", 0))
         protocol = str(row.get("protocol", "unknown"))
-        dpid     = int(row.get("dpid",     0))
-        bytes_   = int(row.get("bytes",    0))
-        packets  = int(row.get("packets",  0))
+        dpid = int(row.get("dpid", 0))
+        bytes_ = int(row.get("bytes", 0))
+        packets = int(row.get("packets", 0))
         duration = float(row.get("duration", 0.0))
 
         # Compute per-feature deviations using the model bundle's training stats
         deviations = _compute_deviations(row, model_bundle)
-        top_devs   = sorted(deviations, key=lambda d: abs(d.z_score), reverse=True)[:3]
+        top_devs = sorted(deviations, key=lambda d: abs(d.z_score), reverse=True)[:3]
 
         # Build explanation and recommendation text (delegated to explainer.py,
         # but we do a lightweight fallback here if explainer is not yet available)
         try:
             from src.explainer import build_explanation, build_recommendation
-            explanation    = build_explanation(top_devs, severity, protocol)
+            explanation = build_explanation(top_devs, severity, protocol)
             recommendation = build_recommendation(severity, protocol, dst_port)
         except ImportError:
-            explanation    = _fallback_explanation(top_devs, severity)
+            explanation = _fallback_explanation(top_devs, severity)
             recommendation = _fallback_recommendation(severity)
 
         alert = cls(
-            anomaly_score   = score,
-            anomaly_rank    = rank,
-            batch_size      = batch_size,
-            confidence_pct  = confidence,
-            severity        = severity,
-            src_ip          = src_ip,
-            dst_ip          = dst_ip,
-            src_port        = src_port,
-            dst_port        = dst_port,
-            protocol        = protocol,
-            dpid            = dpid,
-            bytes           = bytes_,
-            packets         = packets,
-            duration        = duration,
-            top_deviations  = top_devs,
-            explanation     = explanation,
-            recommendation  = recommendation,
+            anomaly_score = score,
+            anomaly_rank = rank,
+            batch_size = batch_size,
+            confidence_pct = confidence,
+            severity = severity,
+            src_ip = src_ip,
+            dst_ip = dst_ip,
+            src_port = src_port,
+            dst_port = dst_port,
+            protocol = protocol,
+            dpid = dpid,
+            bytes = bytes_,
+            packets = packets,
+            duration = duration,
+            top_deviations = top_devs,
+            explanation = explanation,
+            recommendation = recommendation,
         )
 
         logger.info(
