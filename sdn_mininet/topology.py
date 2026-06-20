@@ -71,7 +71,7 @@ class FederatedSDNTopo(Topo):
         h5 = self.addHost("h5", ip="10.0.0.5/8", mac="00:00:00:00:03:01")
         h6 = self.addHost("h6", ip="10.0.0.6/8", mac="00:00:00:00:03:02")
 
-        # Tool 3: attacker host added ─
+        # Tool 3: attacker host added
         # h7 is placed on s1 and injects FlowMod; affects h1/h2 traffic.
         # h7 uses a separate MAC/IP to avoid collisions with existing hosts.
         h7 = self.addHost("h7", ip="10.0.0.7/8", mac="00:00:00:00:01:07")
@@ -213,7 +213,6 @@ def label_attack_flows(net):
 
 LABEL_SCRIPT_HINT = """
 After traffic generation, label the attack flows:
-
   python3 sdn_mininet/label_window.py \\
     --file data/live_client2.csv \\
     --all --label 1
