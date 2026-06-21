@@ -48,9 +48,9 @@
     display: flex; align-items: center; gap: 6px;
   }
   .stat-pill .dot { width: 7px; height: 7px; border-radius: 50%; }
-  .dot-green  { background: var(--green); box-shadow: 0 0 6px var(--green); }
-  .dot-red    { background: var(--high);  box-shadow: 0 0 6px var(--high); }
-  .dot-amber  { background: var(--med);   box-shadow: 0 0 6px var(--med); }
+  .dot-green { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .dot-red { background: var(--high);  box-shadow: 0 0 6px var(--high); }
+  .dot-amber { background: var(--med);   box-shadow: 0 0 6px var(--med); }
   #server-status-dot { transition: background .4s, box-shadow .4s; }
   .header-actions { display: flex; gap: 8px; }
   .btn {
@@ -80,10 +80,10 @@
     font-size: 11px; font-weight: 700; border-radius: 10px;
     padding: 1px 8px; min-width: 22px; text-align: center;
   }
-  .badge-high   { background: var(--high-bg); color: var(--high); }
-  .badge-med    { background: var(--med-bg); color: var(--med);  }
-  .badge-low    { background: var(--low-bg); color: var(--low);  }
-  .badge-neutral{ background: var(--surface2); color: var(--muted); }
+  .badge-high { background: var(--high-bg); color: var(--high); }
+  .badge-med { background: var(--med-bg); color: var(--med);  }
+  .badge-low { background: var(--low-bg); color: var(--low);  }
+  .badge-neutral { background: var(--surface2); color: var(--muted); }
 
   .filter-tabs {
     display: flex; gap: 0; border-bottom: 1px solid var(--border); flex-shrink: 0;
@@ -129,10 +129,10 @@
     font-size: 10px; border-radius: 10px; padding: 1px 6px; margin-top: 3px;
     display: inline-block; font-weight: 600; letter-spacing: .03em;
   }
-  .pill-pending  { background: #2a2030; color: var(--purple); }
+  .pill-pending { background: #2a2030; color: var(--purple); }
   .pill-approved { background: var(--high-bg); color: var(--high); }
-  .pill-monitor  { background: var(--med-bg);  color: var(--med);  }
-  .pill-ignored  { background: var(--surface2); color: var(--muted); }
+  .pill-monitor { background: var(--med-bg);  color: var(--med);  }
+  .pill-ignored { background: var(--surface2); color: var(--muted); }
 
   .empty-state {
     padding: 40px 20px; text-align: center; color: var(--muted); font-size: 13px;
@@ -163,8 +163,8 @@
     text-transform: uppercase; letter-spacing: .06em;
   }
   .chip-high { background: var(--high-bg); color: var(--high); border: 1px solid var(--high); }
-  .chip-med  { background: var(--med-bg);  color: var(--med);  border: 1px solid var(--med);  }
-  .chip-low  { background: var(--low-bg);  color: var(--low);  border: 1px solid var(--low);  }
+  .chip-med { background: var(--med-bg);  color: var(--med);  border: 1px solid var(--med);  }
+  .chip-low { background: var(--low-bg);  color: var(--low);  border: 1px solid var(--low);  }
   .detail-title { flex: 1; font-size: 15px; font-weight: 600; }
   .conf-ring {
     width: 48px; height: 48px; border-radius: 50%;
@@ -221,9 +221,9 @@
     font-size: 13px; line-height: 1.5; color: var(--text);
     white-space: pre-wrap;
   }
-  .rec-option.opt-block   { border-left: 3px solid var(--high); }
+  .rec-option.opt-block { border-left: 3px solid var(--high); }
   .rec-option.opt-monitor { border-left: 3px solid var(--med); }
-  .rec-option.opt-ignore  { border-left: 3px solid var(--muted); }
+  .rec-option.opt-ignore { border-left: 3px solid var(--muted); }
 
   /* Decision bar */
   .decision-bar {
@@ -267,7 +267,7 @@
     align-items: center; gap: 8px;
   }
   .mit-toast.visible { display: flex; }
-  .mit-toast.failed  { background: var(--high-bg); border-color: var(--high); color: var(--high); }
+  .mit-toast.failed { background: var(--high-bg); border-color: var(--high); color: var(--high); }
 
   /* Stats footer */
   .stats-row {
@@ -785,7 +785,7 @@ function renderDetail(a) {
 
   // Decision bar
   const decided = a.decision !== 'pending';
-  const decBar  = $('decision-bar');
+  const decBar = $('decision-bar');
   decBar.className = 'decision-bar' + (decided ? ' decided' : '');
   $('dec-label').textContent = decided
     ? `Decision: ${a.decision.toUpperCase()}${a.decided_at_str ? ' at ' + a.decided_at_str : ''}`
@@ -793,7 +793,7 @@ function renderDetail(a) {
 
   $('btn-approve').disabled = decided;
   $('btn-monitor').disabled = decided;
-  $('btn-ignore').disabled  = decided;
+  $('btn-ignore').disabled = decided;
 
   // Hide mitigation toast on fresh load
   const toast = $('mit-toast');
@@ -807,7 +807,7 @@ async function decide(decision) {
 
   $('btn-approve').disabled = true;
   $('btn-monitor').disabled = true;
-  $('btn-ignore').disabled  = true;
+  $('btn-ignore').disabled = true;
   $('dec-label').textContent = 'Submitting…';
 
   try {
@@ -821,7 +821,7 @@ async function decide(decision) {
       $('dec-label').textContent = `Error: ${d.error || 'Unknown error'}`;
       $('btn-approve').disabled = false;
       $('btn-monitor').disabled = false;
-      $('btn-ignore').disabled  = false;
+      $('btn-ignore').disabled = false;
       return;
     }
 
@@ -854,14 +854,14 @@ async function decide(decision) {
     $('dec-label').textContent = 'Network error — try again.';
     $('btn-approve').disabled = false;
     $('btn-monitor').disabled = false;
-    $('btn-ignore').disabled  = false;
+    $('btn-ignore').disabled = false;
   }
 }
 
 // Scan trigger
 async function triggerScan() {
   const btn = $('scan-btn');
-  btn.disabled    = true;
+  btn.disabled = true;
   btn.textContent = '⏳ Scanning…';
   try {
     const r = await fetch(`${API}/api/scan`, { method: 'POST' });
