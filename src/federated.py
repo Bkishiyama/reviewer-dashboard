@@ -1,14 +1,11 @@
 from __future__ import annotations
-
 #!/usr/bin/env python3
-"""
-federated.py
 
+"""  federated.py
 This file handles the Federated Learning setup for SDN anomaly detection.
 Since we can't directly average Isolation Forest trees:
 1. Score Ensemble (default) -> average scores from all clients
 2. Threshold Consensus -> average the anomaly thresholds from each client
-
 Tool 2 extends this file with:
 - Byzantine-robust Z-score sanitization before aggregation
 - Poisoned client injection for attack simulation
@@ -21,10 +18,8 @@ import csv
 import joblib
 import numpy as np
 from typing import Optional
-
 # Tool 2: import sanitizer
 from src.sanitizer import aggregate_with_sanitizer, SanitizationReport
-
 
 # Load multiple client model files using a glob pattern
 def load_client_models(pattern: str):
@@ -41,10 +36,7 @@ def load_client_models(pattern: str):
     return models, paths
 
 
-
 # Scoring strategies
-
-
 # Strategy A: Average anomaly scores from all client models
 def federated_score_ensemble(
     client_models: list[dict],
@@ -77,10 +69,7 @@ def federated_threshold_consensus(client_models: list[dict]) -> float:
     return global_threshold
 
 
-
 # Aggregate and save global model
-
-
 # Combine client models into a single global bundle and save it
 def aggregate_and_save(
     client_models: list[dict],
@@ -91,12 +80,12 @@ def aggregate_and_save(
     global_threshold = federated_threshold_consensus(client_models)
     
     global_bundle = {
-        "clients": client_models,                    # Keep all client models
+        "clients": client_models,  # Keep all client models
         "n_clients": len(client_models),
         "strategy": strategy,
         "global_threshold": global_threshold,
         "client_ids": [m["meta"]["client_id"] for m in client_models],
-        "features": client_models[0]["features"],    # Assume all have same features
+        "features": client_models[0]["features"],  # Assume all have same features
     }
     
     # Make sure output directory exists
@@ -110,13 +99,13 @@ def aggregate_and_save(
     return global_bundle
 
 
-# Tool 2: extract a scalar metric from a saved model bundle
+
+""" Tool 2: extract a scalar metric from a saved model bundle
+Convert a saved local model bundle to a single representative scalar
+suitable for Z-score comparison. Uses the p5 threshold as the metric
+since it is the value most vulnerable to poisoning.
+"""
 def _model_bundle_to_scalar(bundle: dict) -> float:
-    """
-    Convert a saved local model bundle to a single representative scalar
-    suitable for Z-score comparison. Uses the p5 threshold as the metric
-    since it is the value most vulnerable to poisoning.
-    """
     # Use p5 threshold as the primary metric for sanitization
     score_stats = bundle.get("score_stats", {})
     p5 = score_stats.get("p5")
