@@ -4,14 +4,12 @@ from __future__ import annotations
 """ cli.py
 SDN Federated Anomaly Detector
 Command-line interface for all four tools.
-Tool 1 → Federated anomaly detection for SDN traffic
-Tool 2 → Byzantine-robust model poisoning defense
-Tool 3 → OpenFlow FlowMod injection (attack demo — see sdn_mininet/injector.py)
-Tool 4 → Human-in-the-Loop security dashboard
-All original Tool 1 and Tool 2 commands are preserved unchanged.
+Tool 1: Federated anomaly detection for SDN traffic
+Tool 2: Byzantine-robust model poisoning defense
+Tool 3: OpenFlow FlowMod injection (attack demo — see sdn_mininet/injector.py)
+Tool 4: Human-in-the-Loop security dashboard
 Tool 4 adds three new commands: dashboard, hitl, demo-hitl.
 Available commands
-Tool 1 / 2 (existing):
 generate-data: Generate synthetic SDN flow datasets
 train: Train a local Isolation Forest model
 federate: Federated aggregation of local models
@@ -62,10 +60,9 @@ from src.federated import simulate_fl_rounds
 from sdn_mininet.poisoned_host import run_standalone_demo
 
 # Tool 4 components 
-# Imported lazily inside each handler so Flask / joblib are only required
-# when those specific commands are used.  This keeps `python3 cli.py --help`
+# Imported lazily inside each handler so Flask/joblib are only required
+# when those specific commands are used. This keeps `python3 cli.py --help`
 # fast and avoids hard import failures on machines without Flask installed.
-
 
 # Tool 2 Command handles
 """ Tool 2: sanitize command
@@ -212,14 +209,14 @@ def cmd_dashboard(args):
 
     os.makedirs("results", exist_ok=True)
 
-    print("=" * 60)
-    print("  Tool 4 - HITL Operator Dashboard")
-    print(f"  Model : {args.model}")
-    print(f"  Data : {args.data}")
-    print(f"  URL : http://localhost:{args.port}")
-    print(f"  API : http://localhost:{args.port}/api/alerts")
-    print(f"  Scan : {'manual only (--no-auto-scan)' if args.no_auto_scan else f'every 30s (auto)'}")
-    print("=" * 60)
+    print("+-" * 30)
+    print("[*] Tool 4 - HITL Operator Dashboard")
+    print(f"[*] Model : {args.model}")
+    print(f"[*] Data : {args.data}")
+    print(f"[*] URL : http://localhost:{args.port}")
+    print(f"[*] API : http://localhost:{args.port}/api/alerts")
+    print(f"[*] Scan : {'manual only (--no-auto-scan)' if args.no_auto_scan else f'every 30s (auto)'}")
+    print("+-" * 30)
     print()
 
     app = create_app(
@@ -305,9 +302,9 @@ def cmd_hitl(args):
             m = Mitigator()
             result = m.from_alert(alert, action=MitigationAction.BLOCK)
             if result.status.value == "success":
-                print(f"[HITL] ✓ {result.summary()}")
+                print(f"[HITL] 🟢 {result.summary()}")
             else:
-                print(f"[HITL] ✗ Mitigation failed: {result.error}")
+                print(f"[HITL] 🔴 Mitigation failed: {result.error}")
 
         # Interactive mode
         elif args.interactive:
@@ -330,9 +327,9 @@ def cmd_hitl(args):
                 m = Mitigator()
                 result = m.from_alert(alert, action=MitigationAction.BLOCK)
                 if result.status.value == "success":
-                    print(f"[HITL] ✓ DROP rule installed — {result.summary()}")
+                    print(f"[HITL] 🟢 DROP rule installed -> {result.summary()}")
                 else:
-                    print(f"[HITL] ✗ Mitigation failed: {result.error}")
+                    print(f"[HITL] 🔴 Mitigation failed: {result.error}")
             elif choice == "m":
                 print(f"[HITL] 👁  Alert #{alert.alert_id} flagged for monitoring.")
             elif choice == "i":
@@ -392,10 +389,10 @@ def cmd_demo_hitl(args):
 
     scenario = scenarios[args.scenario]
 
-    print(f"\n{'=' * 60}")
-    print(f"  Tool 4 HITL Demo — scenario: {args.scenario}")
-    print(f"  {scenario['description']}")
-    print(f"{'=' * 60}\n")
+    print(f"\n{'+-' * 30}")
+    print(f"[*] Tool 4 HITL Demo -> scenario: {args.scenario}")
+    print(f"[*] {scenario['description']}")
+    print(f"{'+-' * 30}\n")
 
     # Build a namespace that looks like parsed hitl args
     class _ScenarioArgs:
@@ -476,8 +473,8 @@ def build_parser() -> argparse.ArgumentParser:
         "federate",
         help="Federated aggregation of local models into a global model (Tool 1)",
     )
-    sp.add_argument("--models",   required=True, help='Glob pattern, e.g. "models/client*.pkl"')
-    sp.add_argument("--out",      required=True, help="Output path for global model (.pkl)")
+    sp.add_argument("--models", required=True, help='Glob pattern, e.g. "models/client*.pkl"')
+    sp.add_argument("--out", required=True, help="Output path for global model (.pkl)")
     sp.add_argument(
         "--strategy",
         default="score_ensemble",
@@ -694,7 +691,7 @@ def build_parser() -> argparse.ArgumentParser:
 def main():
     # Parse arguments and dispatch to the correct command handler
     parser = build_parser()
-    args   = parser.parse_args()
+    args = parser.parse_args()
 
     if not args.command:
         parser.print_help()
