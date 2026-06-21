@@ -76,25 +76,25 @@ MIN_ALERT_CONFIDENCE = float(os.environ.get("MIN_ALERT_CONFIDENCE", "50.0"))
 # Maximum alerts created per scan batch; prevents flooding under attack
 MAX_ALERTS_PER_SCAN = int(os.environ.get("MAX_ALERTS_PER_SCAN", "20"))
 
-# App factory
+
+"""  App factory
+Create and configure the Flask application.
+Parameters:
+model_path: str
+- Path to the trained model bundle (.pkl) used for detection.
+- Passed at startup via CLI args or environment variable MODEL_PATH.
+data_path: str
+- Path to the flow CSV file to score. In live mode this is a live_client*.csv written by ryu_collector.py.
+auto_scan : bool
+If True, start a background thread that re-runs detect() every AUTO_SCAN_INTERVAL seconds, 
+pushing new alerts automatically.  Returns:
+Flask Configured app instance. Call app.run() or use gunicorn to serve.
+"""
 def create_app(
     model_path: str,
     data_path: str,
     auto_scan: bool = True,
 ) -> Flask:
-    """
-    Create and configure the Flask application.
-    Parameters:
-    model_path: str
-    - Path to the trained model bundle (.pkl) used for detection.
-    - Passed at startup via CLI args or environment variable MODEL_PATH.
-    data_path: str
-    - Path to the flow CSV file to score. In live mode this is a live_client*.csv written by ryu_collector.py.
-    auto_scan : bool
-    If True, start a background thread that re-runs detect() every AUTO_SCAN_INTERVAL seconds, 
-    pushing new alerts automatically.  Returns:
-    Flask Configured app instance. Call app.run() or use gunicorn to serve.
-    """
     app = Flask(
         __name__,
         static_folder = STATIC_DIR,
@@ -137,7 +137,7 @@ def create_app(
                 return 0
 
             bundle = joblib.load(model_path)
-            df     = detect(model_path, data_path, verbose=verbose)
+            df = detect(model_path, data_path, verbose=verbose)
 
             new_alerts = alerts_from_detections(
                 df,
@@ -428,8 +428,8 @@ def create_app(
         )
         return jsonify(result.to_dict()), 200
 
-    # Scan trigger
-    """
+    
+    """  Scan trigger
     Trigger an immediate detection scan on demand. press a button in the 
     dashboard to force a fresh scan without waiting for the auto-scan timer.
     Returns the number of new alerts created.
