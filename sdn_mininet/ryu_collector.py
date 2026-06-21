@@ -38,11 +38,9 @@ import threading
 import time
 from collections import defaultdict
 from typing import Dict, List, Optional
-
 # Add project root to path so src/ is importable regardless of where
 # ryu-manager is invoked from.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from ryu.base import app_manager
 from ryu.controller import ofp_event
 from ryu.controller.handler import CONFIG_DISPATCHER, MAIN_DISPATCHER, set_ev_cls
@@ -51,14 +49,11 @@ from ryu.lib.packet import ethernet, ipv4, ipv6, packet, tcp, udp, icmp
 from ryu.ofproto import ofproto_v1_3
 from ryu.app.wsgi import ControllerBase, WSGIApplication, route
 from webob import Response
-
 # Tool 2: import sanitizer
 from src.sanitizer import aggregate_with_sanitizer, SanitizationReport
 from src.features import load_flows # available for live scoring
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Configuration
-# ─────────────────────────────────────────────────────────────────────────────
 POLL_INTERVAL = 5 # How often to poll switches for flow stats (seconds)
 OUTPUT_DIR = "data" # Where to save the live CSV files
 MAX_ROWS = 5000 # Future: rotate files after this many rows
@@ -87,9 +82,7 @@ SANITIZER_LOG_PATH = os.environ.get("SANITIZER_LOG_PATH", "results/ryu_sanitizer
 # Oldest entry is evicted when the cap is hit.
 HITL_QUEUE_MAX = int(os.environ.get("HITL_QUEUE_MAX", "100"))
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Module-level state
-# ─────────────────────────────────────────────────────────────────────────────
 # Tool 2: in-memory FL upload queue (cleared each FL round)
 _upload_queue: Dict[str, float] = {}
 _last_global_model: Optional[float] = None
@@ -104,9 +97,7 @@ _hitl_alert_queue: List[dict] = []
 _hitl_last_alert_at: Optional[float] = None
 _hitl_lock = threading.Lock()
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Main Ryu Application
-# ─────────────────────────────────────────────────────────────────────────────
 class SDNSanitizerController(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
     _CONTEXTS = {"wsgi": WSGIApplication}
@@ -134,7 +125,7 @@ class SDNSanitizerController(app_manager.RyuApp):
         self.logger.info("[Ryu] POST http://127.0.0.1:8080/hitl/alert -> push anomaly alert")
         self.logger.info("[Ryu] GET http://127.0.0.1:8080/hitl/status -> HITL queue status")
 
-    # ── OpenFlow event handlers ───────────────────────────────────────────────
+    # OpenFlow event handlers
     # Called when a switch connects to the controller
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
@@ -208,7 +199,7 @@ class SDNSanitizerController(app_manager.RyuApp):
                 f"+{rows_written} flows (total={self._row_counts[client]})"
             )
 
-    # ── Background monitoring ─────────────────────────────────────────────────
+    # Background monitoring
     # Background thread: poll switches for flow stats periodically
     def _monitor_loop(self):
         while True:
@@ -231,7 +222,7 @@ class SDNSanitizerController(app_manager.RyuApp):
         )
         datapath.send_msg(req)
 
-    # ── Helper functions ──────────────────────────────────────────────────────
+    # Helper functions
     # Install a flow entry on the switch
     def _add_flow(self, datapath, priority, match, actions,
                   idle_timeout=30, hard_timeout=0):
@@ -318,9 +309,7 @@ class SDNSanitizerController(app_manager.RyuApp):
             logf.write("\n")
         return global_model, report
 
-# ─────────────────────────────────────────────────────────────────────────────
 # REST API Handler (Tools 2 + 4)
-# ─────────────────────────────────────────────────────────────────────────────
 class FLSanitizerAPI(ControllerBase):
     """
     Ryu WSGI REST API handler.
@@ -332,7 +321,7 @@ class FLSanitizerAPI(ControllerBase):
         super().__init__(req, link, data, **config)
         self.controller: SDNSanitizerController = data[REST_APP_NAME]
 
-    # ── Tool 2: FL endpoints ──────────────────────────────────────────────────
+    # Tool 2: FL endpoints
     @route("fl", "/fl/upload", methods=["POST"])
     def upload_metric(self, req, **kwargs):
         """Client pushes its local model metric.
@@ -410,7 +399,7 @@ class FLSanitizerAPI(ControllerBase):
             body=json.dumps({"status": "queue cleared"}),
         )
 
-    # ── Tool 4: HITL endpoints ────────────────────────────────────────────────
+    # Tool 4: HITL endpoints
     @route("hitl", "/hitl/alert", methods=["POST"])
     def push_hitl_alert(self, req, **kwargs):
         """
