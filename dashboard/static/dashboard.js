@@ -489,9 +489,9 @@ function showMitToast(decision, mitigation) {
     const ok = mitigation.status === 'success';
     cls  += ok ? '' : ' failed';
     text  = ok
-      ? `🟢 DROP rule installed on s${mitigation.dpid} via ${mitigation.method}` +
+      ? `🚫 DROP rule installed on s${mitigation.dpid} via ${mitigation.method}` +
         `  (cookie ${mitigation.rule_cookie})`
-      : `🔴 Mitigation failed: ${mitigation.error || 'unknown error'}`;
+      : `⚠️ Mitigation failed: ${mitigation.error || 'unknown error'}`;
   } else if (decision === 'monitor') {
     text = '👁 Alert flagged for monitoring — no SDN rule installed.';
   } else if (decision === 'ignored') {
