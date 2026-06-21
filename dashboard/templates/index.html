@@ -835,8 +835,8 @@ async function decide(decision) {
       toast.className = 'mit-toast visible' + (ok ? '' : ' failed');
       toast.style.display = 'flex';
       toast.textContent = ok
-        ? `🟢  DROP rule installed on s${d.mitigation.dpid} via ${d.mitigation.method} (cookie ${d.mitigation.rule_cookie})`
-        : `🔴 Mitigation failed: ${d.mitigation.error}`;
+        ? `🚫  DROP rule installed on s${d.mitigation.dpid} via ${d.mitigation.method} (cookie ${d.mitigation.rule_cookie})`
+        : `⚠️ Mitigation failed: ${d.mitigation.error}`;
     } else if (decision === 'monitor') {
       toast.className = 'mit-toast visible';
       toast.style.display = 'flex';
