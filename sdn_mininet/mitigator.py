@@ -60,7 +60,7 @@ RYU_REST_HOST = os.environ.get("RYU_REST_HOST", "127.0.0.1")
 RYU_REST_PORT = int(os.environ.get("RYU_REST_PORT", "8080"))
 
 # OVS passive listener, topology.py sets ptcp:6654 on s1
-OVS_SWITCH_IP   = os.environ.get("OVS_SWITCH_IP",   "127.0.0.1")
+OVS_SWITCH_IP = os.environ.get("OVS_SWITCH_IP",   "127.0.0.1")
 OVS_SWITCH_PORT = int(os.environ.get("OVS_SWITCH_PORT", "6654"))
 
 # Flow rule parameters for HITL mitigations
