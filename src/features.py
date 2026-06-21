@@ -1,9 +1,8 @@
 from __future__ import annotations
-
 #!/usr/bin/env python3
-"""
-features.py — SDN Flow Log Feature Extraction
 
+""" features.py  
+SDN Flow Log Feature Extraction
 This file is responsible for loading raw SDN flow data from CSV files 
 and turning it into clean numeric features for our models to use.
 - Loads and cleans the data
@@ -108,8 +107,8 @@ def preprocess(df: pd.DataFrame, scaler: StandardScaler = None):
     return X, scaler, feature_names
 
 
-# Extract ground truth labels (for evaluation only)
-# Get true labels if they exist in the dataset (used only for evaluation)
+# Extract ground truth labels, for evaluation only
+# Get true labels if they exist in the dataset, for evaluation only
 def get_labels(df: pd.DataFrame) -> np.ndarray | None:
     # Return ground-truth labels if the 'label' column exists
     if LABEL_COL not in df.columns:
