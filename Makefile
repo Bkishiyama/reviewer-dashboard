@@ -2,37 +2,33 @@
 # Provides one-command reproducibility for all four tools.
 #
 # Usage:
-#   make install      - install Python dependencies (includes Flask for Tool 4)
-#   make data         - generate synthetic SDN flow logs
-#   make train        - train local Isolation Forest on each client
-#   make aggregate    - aggregate clients into a global federated model
-#   make detect       - run anomaly detection on new flows
-#   make evaluate     - evaluate all models against labeled test data
-#   make simulate-fl  - run a multi-round FL simulation (Tool 2)
-#   make all          - data -> train -> aggregate -> detect -> evaluate
-#   make hitl         - run one HITL scan and print alerts to terminal (Tool 4)
-#   make dashboard    - launch the HITL operator dashboard on port 5000 (Tool 4)
-#   make demo-hitl    - run the DDoS demo scenario interactively (Tool 4)
-#   make demo-scan    - run the port scan demo scenario interactively (Tool 4)
-#   make demo-inject  - run the FlowMod injection demo scenario (Tool 4)
-#   make verify       - show all Tool 4 flow rules installed on s1
-#   make clean        - remove generated models, results, and data
+#   make install - install Python dependencies (includes Flask for Tool 4)
+#   make data - generate synthetic SDN flow logs
+#   make train - train local Isolation Forest on each client
+#   make aggregate - aggregate clients into a global federated model
+#   make detect - run anomaly detection on new flows
+#   make evaluate - evaluate all models against labeled test data
+#   make simulate-fl - run a multi-round FL simulation (Tool 2)
+#   make all - data -> train -> aggregate -> detect -> evaluate
+#   make hitl - run one HITL scan and print alerts to terminal (Tool 4)
+#   make dashboard - launch the HITL operator dashboard on port 5000 (Tool 4)
+#   make demo-hitl - run the DDoS demo scenario interactively (Tool 4)
+#   make demo-scan - run the port scan demo scenario interactively (Tool 4)
+#   make demo-inject - run the FlowMod injection demo scenario (Tool 4)
+#   make verify - show all Tool 4 flow rules installed on s1
+#   make clean - remove generated models, results, and data
 
 PYTHON = python3
-CLI    = $(PYTHON) cli.py
+CLI = $(PYTHON) cli.py
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Setup
-# ─────────────────────────────────────────────────────────────────────────────
 
 # Install all Python dependencies.
 # Flask and flask-cors are new requirements for Tool 4's dashboard.
 install:
 	pip install -r requirements.txt
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Tool 1 / 2: Core ML pipeline  (unchanged)
-# ─────────────────────────────────────────────────────────────────────────────
+# Tool 1 / 2: Core ML pipeline 
 
 # Generate synthetic SDN flow data for all three clients
 data:
@@ -65,11 +61,11 @@ detect:
 # Evaluate all models against labeled test data
 evaluate:
 	$(CLI) evaluate \
-		--model       models/global.pkl \
-		--detections  results/detections.csv \
-		--data        data/test_labeled.csv \
+		--model models/global.pkl \
+		--detections results/detections.csv \
+		--data data/test_labeled.csv \
 		--local-models "models/client*.pkl" \
-		--out         results/
+		--out results/
 
 # Multi-round FL simulation with Byzantine-robust sanitization (Tool 2)
 simulate-fl:
@@ -83,27 +79,25 @@ all: data train aggregate detect evaluate
 	@echo "[!] Results -> results/"
 	@echo "-----------------------------"
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Tool 4: Human-in-the-Loop  (new)
-# ─────────────────────────────────────────────────────────────────────────────
+# Tool 4: Human-in-the-Loop
 
 # Run one HITL detection scan and print explainable alerts to the terminal.
 # Use this to verify the explanation engine works before starting the dashboard.
 # Requires: models/global.pkl and data/new_flows.csv to exist (run make all first).
 hitl:
 	$(CLI) hitl \
-		--model          models/global.pkl \
-		--data           data/new_flows.csv \
+		--model models/global.pkl \
+		--data data/new_flows.csv \
 		--min-confidence 50.0 \
-		--top-n          10
+		--top-n 10
 
 # Same as hitl but prompts the operator for each alert: [a]pprove [m]onitor [i]gnore [s]kip
 hitl-interactive:
 	$(CLI) hitl \
-		--model          models/global.pkl \
-		--data           data/new_flows.csv \
+		--model models/global.pkl \
+		--data data/new_flows.csv \
 		--min-confidence 40.0 \
-		--top-n          10 \
+		--top-n 10 \
 		--interactive
 
 # Launch the HITL operator dashboard web server.
@@ -114,22 +108,22 @@ hitl-interactive:
 dashboard:
 	$(CLI) dashboard \
 		--model models/global.pkl \
-		--data  data/new_flows.csv \
-		--port  5000
+		--data data/new_flows.csv \
+		--port 5000
 
 # Dashboard in live Mininet mode — scans the live collector CSV instead of
 # the static test file. Run this while ryu_collector.py is collecting flows.
 dashboard-live:
 	$(CLI) dashboard \
 		--model models/global.pkl \
-		--data  data/live_client1.csv \
-		--port  5000
+		--data data/live_client1.csv \
+		--port 5000
 
-# ── Demo scenarios (for the video presentation) ───────────────────────────────
+# Demo scenarios (for the video presentation) 
 
 # Demo scenario A: DDoS detection and mitigation
 # Uses data/live_client2.csv (h4 DDoS traffic on s2).
-# Interactive — operator chooses Block / Monitor / Ignore for each alert.
+# Interactive — operator chooses Block/Monitor/Ignore for each alert.
 demo-hitl:
 	$(CLI) demo-hitl --scenario ddos --config config/hitl_config.yaml
 
@@ -141,7 +135,7 @@ demo-scan:
 # Demo scenario C: FlowMod injection (Tool 3 attack detected by Tool 4)
 # Uses data/live_client1.csv (h7 injector traffic on s1).
 # After the operator approves, automatically verifies the installed rules with
-# ovs-ofctl — showing both the Tool 3 rogue cookie and the Tool 4 defensive
+# ovs-ofctl - showing both the Tool 3 rogue cookie and the Tool 4 defensive
 # cookie side by side in the terminal.
 demo-inject:
 	$(CLI) demo-hitl --scenario flowmod_inject --config config/hitl_config.yaml
@@ -154,7 +148,7 @@ demo-fte:
 demo-baseline:
 	$(CLI) demo-hitl --scenario baseline --config config/hitl_config.yaml
 
-# ── Rule verification ─────────────────────────────────────────────────────────
+# Rule verification
 
 # Show all Tool 4 DROP rules currently installed on s1.
 # Filters ovs-ofctl dump-flows output for the HITL cookie.
@@ -168,13 +162,10 @@ verify:
 		echo "(no flows matched — is Mininet running?)"
 	@echo ""
 	@echo "Cookie reference:"
-	@echo "  Tool 4 defensive : 0xfeedfacecafe0004  priority=30000"
-	@echo "  Tool 3 rogue      : 0xdeadbeefcafe0001  priority=40000"
+	@echo "[*] Tool 4 defensive : 0xfeedfacecafe0004  priority=30000"
+	@echo "[*]  Tool 3 rogue : 0xdeadbeefcafe0001  priority=40000"
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Cleanup
-# ─────────────────────────────────────────────────────────────────────────────
-
 # Remove all generated files.
 # Preserves source code, configs, and the data/ directory structure.
 clean:
