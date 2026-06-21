@@ -1,3 +1,6 @@
+from __future__ import annotations
+#!/usr/bin/env python3
+
 """ tests/test_sanitizer.py
 This is for Tool 2 Unit Tests: Model Poisoning Sanitizer
 Testing cover:
@@ -7,11 +10,8 @@ Testing cover:
 4. Edge cases: empty input, single host, two hosts, and values are all the same
 5. Vector sanitizer - handles a host when it sends a vector instead of a single number
 6. Z-threshold sensitivity - to determine if valid as strictness is adjusted
-
 Run with -> python3 -m pytest tests/test_sanitizer.py -v
 """
-
-from __future__ import annotations
 
 import math
 import pytest
