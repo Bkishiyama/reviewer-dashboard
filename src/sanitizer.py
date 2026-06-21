@@ -1,11 +1,9 @@
 # required for Python versions < 3.10
 # makes all type annotations in this file behave like strings
 from __future__ import annotations
-
 #!/usr/bin/env python3
 
-"""
-src/sanitizer.py
+""" src/sanitizer.py
 Purpose: check client's updates for model poisoning attacks.
 If detected, drop the offending client from the aggregation.
 If not detected, aggregate the client's updates into the global model.
@@ -64,8 +62,8 @@ class SanitizationReport:
             f"- Rejected  : {self.n_rejected} hosts → {self.rejected_hosts}",
             f"- Group mean (pre-filter) : {self.mean_before:.4f}",
             f"- Group std  (pre-filter) : {self.std_dev:.4f}",
-            f"- Z-threshold used        : {self.z_threshold}",
-            f"- Clean global model      : {self.global_model:.4f}",
+            f"- Z-threshold used : {self.z_threshold}",
+            f"- Clean global model : {self.global_model:.4f}",
         ]
         if self.poisoning_detected:
             lines.append(
@@ -209,8 +207,8 @@ def aggregate_with_sanitizer(
         )
         logger.error(msg)
         print(msg)
-        global_model = mean          # Fallback to pre-filter mean; do not crash
-        clean_hosts = hosts          # just report all as "accepted" when fallback used
+        global_model = mean  # Fallback to pre-filter mean; do not crash
+        clean_hosts = hosts  # just report all as "accepted" when fallback used
     else:
         global_model = sum(clean_values) / len(clean_values) # some valid clients found
     # display final computed model value with # of clients
