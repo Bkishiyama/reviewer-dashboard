@@ -192,9 +192,9 @@ explainer:
   # ("extremely", "significantly", "notably", "slightly").
   # Adjust if your traffic baselines produce unusually high or low Z-scores.
   z_intensity:
-    extremely:    4.0   # |Z| ≥ 4.0
+    extremely: 4.0   # |Z| ≥ 4.0
     significantly: 2.5  # |Z| ≥ 2.5
-    notably:      1.5   # |Z| ≥ 1.5
+    notably: 1.5   # |Z| ≥ 1.5
     # |Z| < 1.5 → "slightly"
 
   # Multiplier threshold for adding "X.X x baseline" to feature descriptions.
@@ -264,8 +264,8 @@ demo_scenarios:
   # Scenario A: DDoS from h4 (s2 / live_client2.csv)
   ddos:
     description: "DDoS SYN flood from h4 targeting h1:80"
-    data_path:   data/live_client2.csv
-    model_path:  models/global.pkl
+    data_path: data/live_client2.csv
+    model_path: models/global.pkl
     attack_host: h4
     attack_type: ddos
     expected_severity: high
@@ -274,8 +274,8 @@ demo_scenarios:
   # Scenario B: Port scan from h6 (s3 / live_client3.csv)
   port_scan:
     description: "nmap port scan from h6 across 10.0.0.0/8"
-    data_path:   data/live_client3.csv
-    model_path:  models/global.pkl
+    data_path: data/live_client3.csv
+    model_path: models/global.pkl
     attack_host: h6
     attack_type: scan
     expected_severity: medium
@@ -284,22 +284,22 @@ demo_scenarios:
   # Scenario C: FlowMod injection (Tool 3), show in verify model
   flowmod_inject:
     description: "Tool 3 rogue FlowMod from h7 dropping HTTP on s1"
-    data_path:   data/live_client1.csv
-    model_path:  models/global.pkl
+    data_path: data/live_client1.csv
+    model_path: models/global.pkl
     attack_host: h7
     attack_type: control_plane_probe
     expected_severity: high
     mitigation_dpid: 1
     # After detection, run verify to show both cookies side by side:
-    #   Tool 4 rule: cookie=0xfeedfacecafe0004  priority=30000
-    #   Tool 3 rule: cookie=0xdeadbeefcafe0001  priority=40000
+    # Tool 4 rule: cookie=0xfeedfacecafe0004  priority=30000
+    # Tool 3 rule: cookie=0xdeadbeefcafe0001  priority=40000
     verify_after: true
 
   # Scenario D: Flow table exhaustion from randomised source IPs
   fte:
     description: "Flow table exhaustion — many random short-lived flows"
-    data_path:   data/new_flows.csv
-    model_path:  models/global.pkl
+    data_path: data/new_flows.csv
+    model_path: models/global.pkl
     attack_host: mixed
     attack_type: flow_table_exhaustion
     expected_severity: medium
@@ -308,8 +308,8 @@ demo_scenarios:
   # Scenario E: Clean baseline, no attacks, dashboard should stay quiet
   baseline:
     description: "Benign traffic baseline — no alerts expected"
-    data_path:   data/client1.csv
-    model_path:  models/global.pkl
+    data_path: data/client1.csv
+    model_path: models/global.pkl
     attack_host: none
     attack_type: none
     expected_severity: null
