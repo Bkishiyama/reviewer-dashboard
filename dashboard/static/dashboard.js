@@ -700,11 +700,11 @@ function openUnblockForm(alert) {
   const ov = $('unblock-overlay');
   if (!ov) return;
 
-  const srcEl  = $('ub-src-ip');
+  const srcEl = $('ub-src-ip');
   const portEl = $('ub-dst-port');
-  const protoEl= $('ub-protocol');
+  const protoEl = $('ub-protocol');
   const dpidEl = $('ub-dpid');
-  const aidEl  = $('ub-alert-id');
+  const aidEl = $('ub-alert-id');
 
   if (srcEl) srcEl.value = alert.src_ip || '';
   if (portEl) portEl.value = alert.dst_port || 0;
@@ -780,8 +780,8 @@ function initKeyboard() {
     // Ignore keypresses inside input fields
     if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
 
-    const list    = filteredAlerts();
-    const curIdx  = list.findIndex(a => a.alert_id === State.currentId);
+    const list = filteredAlerts();
+    const curIdx = list.findIndex(a => a.alert_id === State.currentId);
 
     switch (e.key) {
       case 'j': case 'ArrowDown': {
