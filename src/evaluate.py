@@ -1,12 +1,9 @@
 from __future__ import annotations
-
 #!/usr/bin/env python3
-"""
-evaluate.py — Model Evaluation Script
 
-This file compares our anomaly detection predictions against 
-ground-truth labels (used only for testing; never during training).
-
+""" evaluate.py: Model Evaluation Script
+This file compares our anomaly detection predictions against ground-truth labels,
+- used only for testing and not for training.
 Calculate metrics like Accuracy, Precision, Recall, and F1.
 Generate confusion matrices and comparison chart.
 """
@@ -31,7 +28,6 @@ try:
 except ImportError:
     _PLOTTING = False
     print("[Warning] matplotlib/seaborn not installed. Plots will be skipped.")
-
 
 
 # Compute metrics
@@ -75,7 +71,6 @@ def compute_metrics(
     return result
 
 
-
 # Compare multiple models
 # Create a summary table of different models
 def compare_setups(results: list[dict]) -> pd.DataFrame:
@@ -87,7 +82,6 @@ def compare_setups(results: list[dict]) -> pd.DataFrame:
         rows.append(row)
     
     return pd.DataFrame(rows)
-
 
 
 # Plot and save a confusion matrix heatmap
@@ -175,15 +169,15 @@ def _print_report(r: dict):
     print(f"\n{sep}")
     print(f" Results: {r['label']}")
     print(sep)
-    print(f"   Accuracy = {r['accuracy']:.4f}")
-    print(f"  Precision = {r['precision']:.4f}")
-    print(f"     Recall = {r['recall']:.4f}")
-    print(f"   F1 Score = {r['f1']:.4f}")
+    print(f"[*] Accuracy = {r['accuracy']:.4f}")
+    print(f"[*] Precision = {r['precision']:.4f}")
+    print(f"[*] Recall = {r['recall']:.4f}")
+    print(f"[*] F1 Score = {r['f1']:.4f}")
     
     if "roc_auc" in r and r["roc_auc"] is not None:
         print(f" ROC-AUC   : {r['roc_auc']:.4f}")
     
-    print(f" Confusion Matrix:")
-    print(f"   TN={tn:4d}   FP={fp:4d}")
-    print(f"   FN={fn:4d}   TP={tp:4d}")
+    print(f"[*] Confusion Matrix:")
+    print(f"[*] TN={tn:4d}   FP={fp:4d}")
+    print(f"[*] FN={fn:4d}   TP={tp:4d}")
     print(sep)
