@@ -211,12 +211,22 @@ class SDNSanitizerController(app_manager.RyuApp):
 
     # Background monitoring
     # Background thread: poll switches for flow stats periodically
+    # Background monitoring
+    # Background thread: poll switches for flow stats periodically
     def _monitor_loop(self):
         while True:
             hub.sleep(POLL_INTERVAL)
             for datapath in list(self.datapaths.values()):
-                self._request_flow_stats(datapath)
-
+                try:
+                    self._request_flow_stats(datapath)
+                except Exception:
+                    # A single bad/disconnected datapath should never silently
+                    # kill the whole polling loop — log it and keep going so
+                    # the other switches keep collecting normally.
+                    self.logger.exception(
+                        f"[Collector] Failed to request flow stats for dpid={datapath.id}"
+                    )
+   
     # Send a flow stats request to a switch
     def _request_flow_stats(self, datapath):
         parser = datapath.ofproto_parser
