@@ -2,21 +2,21 @@
 # Provides one-command reproducibility for all four tools.
 #
 # Usage:
-#   make install - install Python dependencies (includes Flask for Tool 4)
-#   make data - generate synthetic SDN flow logs
-#   make train - train local Isolation Forest on each client
-#   make aggregate - aggregate clients into a global federated model
-#   make detect - run anomaly detection on new flows
-#   make evaluate - evaluate all models against labeled test data
-#   make simulate-fl - run a multi-round FL simulation (Tool 2)
-#   make all - data -> train -> aggregate -> detect -> evaluate
-#   make hitl - run one HITL scan and print alerts to terminal (Tool 4)
-#   make dashboard - launch the HITL operator dashboard on port 5000 (Tool 4)
-#   make demo-hitl - run the DDoS demo scenario interactively (Tool 4)
-#   make demo-scan - run the port scan demo scenario interactively (Tool 4)
-#   make demo-inject - run the FlowMod injection demo scenario (Tool 4)
-#   make verify - show all Tool 4 flow rules installed on s1
-#   make clean - remove generated models, results, and data
+# make install - install Python dependencies (includes Flask for Tool 4)
+# make data - generate synthetic SDN flow logs
+# make train - train local Isolation Forest on each client
+# make aggregate - aggregate clients into a global federated model
+# make detect - run anomaly detection on new flows
+# make evaluate - evaluate all models against labeled test data
+# make simulate-fl - run a multi-round FL simulation (Tool 2)
+# make all - data -> train -> aggregate -> detect -> evaluate
+# make hitl - run one HITL scan and print alerts to terminal (Tool 4)
+# make dashboard - launch the HITL operator dashboard on port 5000 (Tool 4)
+# make demo-hitl - run the DDoS demo scenario interactively (Tool 4)
+# make demo-scan - run the port scan demo scenario interactively (Tool 4)
+# make demo-inject - run the FlowMod injection demo scenario (Tool 4)
+# make verify - show all Tool 4 flow rules installed on s1
+# make clean - remove generated models, results, and data
 
 PYTHON = python3
 CLI = $(PYTHON) cli.py
