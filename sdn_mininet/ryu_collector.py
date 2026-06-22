@@ -1,14 +1,13 @@
 from __future__ import annotations
 #!/usr/bin/env python3
 """
-sdn_mininet/ryu_collector.py: Ryu SDN Controller + Flow Stats Collector
-with Byzantine-Robust Model Poisoning Defense + HITL Alert Endpoint
-This Ryu app does four main jobs:
+sdn_mininet/ryu_collector.py: Ryu SDN Controller + Flow Stats Collector with Byzantine
+Robust Model Poisoning Defense + HITL Alert Endpoint. This Ryu app does four main jobs:
 1. Acts as a basic learning L2 switch so hosts in Mininet can ping each other
-2. Periodically collects OpenFlow flow statistics from all switches and saves
-them as CSV files for our anomaly detection tool.
-3. Exposes REST endpoints for FL clients to upload local model metrics and
-triggers sanitized aggregation to defend against model poisoning attacks.
+2. Periodically collects OpenFlow flow statistics from all switches and saves them as 
+CSV files for our anomaly detection tool.
+3. Exposes REST endpoints for FL clients to upload local model metrics and triggers 
+sanitized aggregation to defend against model poisoning attacks.
 4. Exposes HITL REST endpoints so external scripts can push anomaly alerts
 directly into a Ryu-side queue.
 The collected data is written to:
@@ -22,10 +21,9 @@ GET /fl/status -> query current global model state (Tool 2)
 GET /fl/reset -> clear upload queue for next FL round (Tool 2)
 POST /hitl/alert -> push a detected anomaly to the HITL queue (Tool 4)
 GET /hitl/status -> return HITL queue size and last alert time (Tool 4)
-Note on Tool 4 integration: The dashboard (dashboard/app.py) does NOT 
-depend on /hitl/alert. It reads live_client*.csv directly via its 
-background auto-scanner. The /hitl/* endpoints are an optional path
-for custom scripts that want to surface alerts through the Ryu REST layer.
+Note on Tool 4 integration: The dashboard (dashboard/app.py) does NOT depend on /hitl/alert. 
+It reads live_client*.csv directly via its background auto-scanner. The /hitl/* endpoints 
+are an optional path for custom scripts that want to surface alerts through the Ryu REST layer.
 Usage (run from project root):
 ryu-manager sdn_mininet/ryu_collector.py --observe-links
 """
@@ -37,8 +35,7 @@ import threading
 import time
 from collections import defaultdict
 from typing import Dict, List, Optional
-# Add project root to path so src/ is importable from where
-# ryu-manager is invoked from.
+# Add project root to path so src/ is importable from where ryu-manager is invoked from.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from ryu.base import app_manager
 from ryu.controller import ofp_event
@@ -53,7 +50,7 @@ from src.sanitizer import aggregate_with_sanitizer, SanitizationReport
 from src.features import load_flows # available for live scoring
 
 # Configuration
-POLL_INTERVAL = 5 # How often to poll switches for flow stats (seconds)
+POLL_INTERVAL = 5 # How often to poll switches for flow stats (in seconds)
 OUTPUT_DIR = "data" # Where to save the live CSV files
 MAX_ROWS = 5000 # Future: rotate files after this many rows
 
@@ -78,7 +75,7 @@ SANITIZER_LOG_PATH = os.environ.get("SANITIZER_LOG_PATH", "results/ryu_sanitizer
 
 # Tool 4: HITL queue configuration
 # Maximum number of alert dicts held in memory.
-# Oldest entry is evicted when the cap is hit.
+# Oldest entry is deleted when the cap is hit.
 HITL_QUEUE_MAX = int(os.environ.get("HITL_QUEUE_MAX", "100"))
 
 # Module-level state
@@ -363,10 +360,10 @@ class FLSanitizerAPI(ControllerBase):
                 "queue_size": len(_upload_queue),
             }),
         )
-
+    
+    # Trigger sanitized aggregation over all queued uploads
     @route("fl", "/fl/aggregate", methods=["GET"])
     def trigger_aggregation(self, req, **kwargs):
-        """Trigger sanitized aggregation over all queued uploads."""
         global_model, report = self.controller.run_sanitized_aggregation()
         if report is None:
             return Response(
@@ -388,9 +385,9 @@ class FLSanitizerAPI(ControllerBase):
             body=json.dumps(result),
         )
 
+    # Return current upload queue and last known global model
     @route("fl", "/fl/status", methods=["GET"])
-    def get_status(self, req, **kwargs):
-        """Return current upload queue and last known global model."""
+    def get_status(self, req, **kwargs):  
         return Response(
             content_type="application/json",
             charset="utf-8",
@@ -404,9 +401,9 @@ class FLSanitizerAPI(ControllerBase):
             }),
         )
 
+    # Clear the upload queue to start a new FL round
     @route("fl", "/fl/reset", methods=["GET"])
     def reset_queue(self, req, **kwargs):
-        """Clear the upload queue to start a new FL round."""
         _upload_queue.clear()
         return Response(
             content_type="application/json",
