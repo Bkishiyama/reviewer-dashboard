@@ -4,31 +4,30 @@ from __future__ import annotations
 sdn_mininet/ryu_collector.py: Ryu SDN Controller + Flow Stats Collector
 with Byzantine-Robust Model Poisoning Defense + HITL Alert Endpoint
 This Ryu app does four main jobs:
-1. Acts as a basic learning L2 switch (so hosts in Mininet can ping each other)
+1. Acts as a basic learning L2 switch so hosts in Mininet can ping each other
 2. Periodically collects OpenFlow flow statistics from all switches and saves
-   them as CSV files for our anomaly detection tool.
+them as CSV files for our anomaly detection tool.
 3. Exposes REST endpoints for FL clients to upload local model metrics and
-   triggers sanitized aggregation to defend against model poisoning attacks.
+triggers sanitized aggregation to defend against model poisoning attacks.
 4. Exposes HITL REST endpoints so external scripts can push anomaly alerts
-   directly into a Ryu-side queue (optional fast-path for Tool 4).
+directly into a Ryu-side queue.
 The collected data is written to:
-  data/live_client1.csv (switch s1 / dpid=1)
-  data/live_client2.csv (switch s2 / dpid=2)
-  data/live_client3.csv (switch s3 / dpid=3)
+data/live_client1.csv (switch s1 / dpid=1)
+data/live_client2.csv (switch s2 / dpid=2)
+data/live_client3.csv (switch s3 / dpid=3)
 REST API (all on port 8080):
-  POST /fl/upload -> client pushes local model metric (Tool 2)
-  GET /fl/aggregate -> trigger sanitized aggregation (Tool 2)
-  GET /fl/status -> query current global model state (Tool 2)
-  GET /fl/reset -> clear upload queue for next FL round (Tool 2)
-  POST /hitl/alert -> push a detected anomaly to the HITL queue (Tool 4)
-  GET /hitl/status -> return HITL queue size and last alert time (Tool 4)
-Note on Tool 4 integration:
-  The dashboard (dashboard/app.py) does NOT depend on /hitl/alert.
-  It reads live_client*.csv directly via its background auto-scanner.
-  The /hitl/* endpoints are an optional fast-path for custom scripts
-  that want to surface alerts through the Ryu REST layer.
+POST /fl/upload -> client pushes local model metric (Tool 2)
+GET /fl/aggregate -> trigger sanitized aggregation (Tool 2)
+GET /fl/status -> query current global model state (Tool 2)
+GET /fl/reset -> clear upload queue for next FL round (Tool 2)
+POST /hitl/alert -> push a detected anomaly to the HITL queue (Tool 4)
+GET /hitl/status -> return HITL queue size and last alert time (Tool 4)
+Note on Tool 4 integration: The dashboard (dashboard/app.py) does NOT 
+depend on /hitl/alert. It reads live_client*.csv directly via its 
+background auto-scanner. The /hitl/* endpoints are an optional path
+for custom scripts that want to surface alerts through the Ryu REST layer.
 Usage (run from project root):
-  ryu-manager sdn_mininet/ryu_collector.py --observe-links
+ryu-manager sdn_mininet/ryu_collector.py --observe-links
 """
 import csv
 import json
@@ -38,7 +37,7 @@ import threading
 import time
 from collections import defaultdict
 from typing import Dict, List, Optional
-# Add project root to path so src/ is importable regardless of where
+# Add project root to path so src/ is importable from where
 # ryu-manager is invoked from.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from ryu.base import app_manager
@@ -89,10 +88,9 @@ _last_global_model: Optional[float] = None
 _last_report: Optional[SanitizationReport] = None
 
 # Tool 4: HITL alert queue and thread lock
-# The lock protects concurrent access from Ryu's WSGI thread
-# (handling /hitl/alert POST) and any reader of the queue.
-# We use threading.Lock rather than Ryu's hub primitives because
-# the lock is only ever held for microseconds (list append / slice).
+# The lock protects concurrent access from Ryu's WSGI thread (handling /hitl/alert POST) 
+# and any reader of the queue. I use threading.Lock rather than Ryu's hub primitives 
+# because the lock is held for microseconds.
 _hitl_alert_queue: List[dict] = []
 _hitl_last_alert_at: Optional[float] = None
 _hitl_lock = threading.Lock()
@@ -166,7 +164,7 @@ class SDNSanitizerController(app_manager.RyuApp):
         dst_mac = eth_pkt.dst
         src_mac = eth_pkt.src
         dpid = datapath.id
-        # Learn the source MAC → port mapping
+        # Learn the source MAC -> port mapping
         self.mac_to_port.setdefault(dpid, {})
         self.mac_to_port[dpid][src_mac] = in_port
         # Decide output port
@@ -211,8 +209,6 @@ class SDNSanitizerController(app_manager.RyuApp):
 
     # Background monitoring
     # Background thread: poll switches for flow stats periodically
-    # Background monitoring
-    # Background thread: poll switches for flow stats periodically
     def _monitor_loop(self):
         while True:
             hub.sleep(POLL_INTERVAL)
@@ -220,9 +216,8 @@ class SDNSanitizerController(app_manager.RyuApp):
                 try:
                     self._request_flow_stats(datapath)
                 except Exception:
-                    # A single bad/disconnected datapath should never silently
-                    # kill the whole polling loop — log it and keep going so
-                    # the other switches keep collecting normally.
+                    # A bad/disconnected datapath should not silently kill the whole polling loop. 
+                    # Log it and keep going so the other switches keep collecting data.
                     self.logger.exception(
                         f"[Collector] Failed to request flow stats for dpid={datapath.id}"
                     )
@@ -260,7 +255,7 @@ class SDNSanitizerController(app_manager.RyuApp):
         datapath.send_msg(mod)
 
     # Convert an OpenFlow flow stat entry into a CSV row dict.
-    # Uses MAC addresses since the L2 learning switch doesn't match on IP.
+    # Use MAC addresses since the L2 learning switch doesn't match on IP.
     # Skips table-miss entries (priority=0, no src/dst MAC).
     def _stat_to_row(self, stat, dpid, ts) -> dict:
         match = stat.match
@@ -329,14 +324,14 @@ class SDNSanitizerController(app_manager.RyuApp):
             logf.write("\n")
         return global_model, report
 
-# REST API Handler (Tools 2 + 4)
+
+ """  REST API Handler (Tools 2 + 4)
+ Ryu WSGI REST API handler. Implements the /fl/* endpoints (Tool 2) 
+ and /hitl/* endpoints (Tool 4). All responses are JSON. 
+ Ryu's WSGI layer runs this in a gevent greenlet,
+ so standard Python threading.Lock is safe to use for _hitl_lock.
+ """
 class FLSanitizerAPI(ControllerBase):
-    """
-    Ryu WSGI REST API handler.
-    Implements the /fl/* endpoints (Tool 2) and /hitl/* endpoints (Tool 4).
-    All responses are JSON. Ryu's WSGI layer runs this in a gevent greenlet,
-    so standard Python threading.Lock is safe to use for _hitl_lock.
-    """
     def __init__(self, req, link, data, **config):
         super().__init__(req, link, data, **config)
         self.controller: SDNSanitizerController = data[REST_APP_NAME]
@@ -419,33 +414,31 @@ class FLSanitizerAPI(ControllerBase):
             body=json.dumps({"status": "queue cleared"}),
         )
 
-    # Tool 4: HITL endpoints
+    
+    """ # Tool 4: HITL endpoints
+    Tool 4: Push a detected anomaly into the Ryu-side HITL alert queue.
+    Called by external scripts that want to surface an alert to the dashboard through 
+    the Ryu REST layer rather than waiting for the dashboard's auto-scanner to pick 
+    it up from the live CSV. The dashboard does NOT depend on this endpoint for its 
+    core loop. It reads live_client*.csv directly. This is an optional fast-path
+     for custom integrations. Request body (JSON) with defaults applied:
+       {
+         "src_ip": "10.0.0.4",
+         "dst_ip": "10.0.0.1",
+         "src_port": 12345,
+         "dst_port": 80,
+         "protocol": "tcp",
+         "bytes": 1500000,
+         "packets": 5000,
+         "duration": 0.12,
+         "anomaly_score": -0.45,
+         "dpid": 2
+       }
+     Response:
+       { "status": "queued", "queue_size": N, "received_at": "..." }
+     """
     @route("hitl", "/hitl/alert", methods=["POST"])
     def push_hitl_alert(self, req, **kwargs):
-        """
-        Tool 4: Push a detected anomaly into the Ryu-side HITL alert queue.
-        Called by external scripts that want to surface an alert to the
-        dashboard through the Ryu REST layer rather than waiting for the
-        dashboard's auto-scanner to pick it up from the live CSV.
-        The dashboard does NOT depend on this endpoint for its core loop —
-        it reads live_client*.csv directly. This is an optional fast-path
-        for custom integrations.
-        Request body (JSON) — all fields optional, sensible defaults applied:
-          {
-            "src_ip": "10.0.0.4",
-            "dst_ip": "10.0.0.1",
-            "src_port": 12345,
-            "dst_port": 80,
-            "protocol": "tcp",
-            "bytes": 1500000,
-            "packets": 5000,
-            "duration": 0.12,
-            "anomaly_score": -0.45,
-            "dpid": 2
-          }
-        Response:
-          { "status": "queued", "queue_size": N, "received_at": "..." }
-        """
         try:
             body = json.loads(req.body)
         except (ValueError, json.JSONDecodeError) as exc:
@@ -494,21 +487,22 @@ class FLSanitizerAPI(ControllerBase):
             }),
         )
 
+
+    """
+    Tool 4: Return current HITL alert queue size and last alert time.
+    Called by the dashboard's /api/health endpoint to show whether the Ryu-side queue 
+    has unread alerts. The last 5 alert summaries are included for a lightweight 
+    preview without needing a separate fetch.
+    Response:
+    {
+        "hitl_queue_size": N,
+        "last_alert_at": <unix timestamp or null>,
+        "last_alert_at_str": "2026-05-29T14:30:00" or null,
+        "recent_alerts": [ ... last 5 alert dicts ... ]
+    }
+    """
     @route("hitl", "/hitl/status", methods=["GET"])
     def hitl_status(self, req, **kwargs):
-        """
-        Tool 4: Return current HITL alert queue size and last alert time.
-        Called by the dashboard's /api/health endpoint to show whether the
-        Ryu-side queue has unread alerts. The last 5 alert summaries are
-        included for a lightweight preview without needing a separate fetch.
-        Response:
-          {
-            "hitl_queue_size": N,
-            "last_alert_at": <unix timestamp or null>,
-            "last_alert_at_str": "2026-05-29T14:30:00" or null,
-            "recent_alerts": [ ... last 5 alert dicts ... ]
-          }
-        """
         with _hitl_lock:
             queue_size = len(_hitl_alert_queue)
             last_alert = _hitl_last_alert_at
