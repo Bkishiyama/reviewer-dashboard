@@ -185,3 +185,14 @@ clean-all: clean
         demo-hitl demo-scan demo-inject demo-fte demo-baseline \
         verify \
         clean clean-all
+
+.PHONY: iot-bridge iot-bridge-clean
+
+iot-bridge:
+	@echo "Bridging IoTGoat into Mininet topology (requires topology.py already running)..."
+	sudo bash sdn_mininet/setup_iot_bridge.sh
+
+iot-bridge-clean:
+	@echo "Removing IoTGoat bridge..."
+	-sudo ovs-vsctl del-port s3 patch-to-iot
+	-sudo ovs-vsctl del-br br-iot
