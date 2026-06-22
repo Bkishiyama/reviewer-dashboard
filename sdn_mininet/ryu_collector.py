@@ -138,7 +138,17 @@ class SDNSanitizerController(app_manager.RyuApp):
         match = parser.OFPMatch()
         actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,
                                           ofproto.OFPCML_NO_BUFFER)]
-        self._add_flow(datapath, priority=0, match=match, actions=actions)
+        self._add_flow(datapath, priority=0, match=match, actions=actions, idle_timeout=0, hard_timeout=0)
+       
+        # Force the switch to send full packet data (not truncated) on packet-in events. 
+        # Some patch-port/bridge configurations leave miss_send_len at 0, which causes 
+        # packet_in_handler to receive empty msg.data and silently drop the packet.
+        req = parser.OFPSetConfig(
+            datapath,
+            ofproto.OFPC_FRAG_NORMAL,
+            ofproto.OFPCML_NO_BUFFER
+        )
+        datapath.send_msg(req)   
 
     # Packet-In Handler (Learning Switch)
     # Handle packet-in messages and learn MAC addresses
