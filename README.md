@@ -128,6 +128,13 @@ draw.io assisted
 Ubuntu 20.04 (native or VM). The lab does not work inside Docker for the live
 Mininet mode because Mininet requires kernel namespaces.
 
+### Setup
+1. Import the IoTGoat .vdi into VirtualBox; set its NIC to Internal Network "iotlab"
+2. Set Kali's NIC to a SEPARATE Internal Network, e.g. "iotlab-kali"
+3. Ubuntu needs a second NIC also on "iotlab-kali"
+4. Configure static IPs: IoTGoat 192.168.100.2/24, Kali 192.168.200.3/24
+5. Run `make iot-bridge` after topology.py is already running
+
 ### Automated setup
 
 ```bash
@@ -837,3 +844,10 @@ small groups (≤9 clients). With only three clients in this lab, the sanitizer
 is aggressive — a single outlier will be caught but borderline anomalies may
 also be rejected. Lower the threshold in `config/fed_config.yaml` for more
 permissive behavior.
+
+### Known Issues for Tool 4
+- NetworkManager may reclaim the bridged NIC on boot; the setup script disables
+  this automatically, but a reboot may require re-running `make iot-bridge`
+- Traffic appears in live_client3.csv under Ubuntu's bridge MAC, not Kali's or
+  IoTGoat's original MAC directly. This is expected, since Ubuntu routes
+  between the two subnets and re-frames packets at L2
