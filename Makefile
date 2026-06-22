@@ -119,11 +119,19 @@ dashboard-live:
 		--data data/live_client1.csv \
 		--port 5000
 
+# Dashboard for the IoTGoat/Kali live attack extension. This watches s3's CSV,
+# which is where the IoTGoat bridge (make iot-bridge) lands traffic.
+dashboard-live-iot:
+	$(CLI) dashboard \
+		--model models/global.pkl \
+		--data data/live_client3.csv \
+		--port 5000
+
 # Demo scenarios (for the video presentation) 
 
 # Demo scenario A: DDoS detection and mitigation
 # Uses data/live_client2.csv (h4 DDoS traffic on s2).
-# Interactive — operator chooses Block/Monitor/Ignore for each alert.
+# Interactive: operator chooses Block/Monitor/Ignore for each alert.
 demo-hitl:
 	$(CLI) demo-hitl --scenario ddos --config config/hitl_config.yaml
 
@@ -184,15 +192,20 @@ clean-all: clean
         dashboard dashboard-live \
         demo-hitl demo-scan demo-inject demo-fte demo-baseline \
         verify \
+        iot-bridge iot-bridge-clean \
         clean clean-all
 
-.PHONY: iot-bridge iot-bridge-clean
-
 iot-bridge:
-	@echo "Bridging IoTGoat into Mininet topology (requires topology.py already running)..."
+	@echo "Bridging IoTGoat into Mininet topology..."
+	@if ! sudo ovs-vsctl br-exists s3 2>/dev/null; then \
+		echo "[!] s3 not found — start 'sudo python3 sdn_mininet/topology.py' first."; \
+		exit 1; \
+	fi
 	sudo bash sdn_mininet/setup_iot_bridge.sh
 
 iot-bridge-clean:
 	@echo "Removing IoTGoat bridge..."
+	-sudo ovs-vsctl destroy Mirror iot-mirror
 	-sudo ovs-vsctl del-port s3 patch-to-iot
 	-sudo ovs-vsctl del-br br-iot
+	@echo "[!] IoTGoat bridge removed."
