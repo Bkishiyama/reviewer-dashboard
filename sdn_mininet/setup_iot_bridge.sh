@@ -27,6 +27,9 @@ sudo nmcli device set "$IOT_IFACE" managed no || true
 echo "[*] Enabling IP forwarding"
 sudo sysctl -w net.ipv4.ip_forward=1
 
+echo "[*] Ensuring $IOT_IFACE has no stray IP before bridging"
+sudo ip addr flush dev "$IOT_IFACE"
+
 echo "[*] Creating br-iot bridge"
 sudo ovs-vsctl --may-exist add-br br-iot
 sudo ovs-vsctl --may-exist add-port br-iot "$IOT_IFACE"
