@@ -294,7 +294,7 @@ demo_scenarios:
     # Tool 3 rule: cookie=0xdeadbeefcafe0001  priority=40000
     verify_after: true
 
-  # Scenario D: Flow table exhaustion from randomised source IPs
+  # Scenario D: Flow table exhaustion from randomized source IPs
   fte:
     description: "Flow table exhaustion -> many random short-lived flows"
     data_path: data/new_flows.csv
@@ -304,7 +304,7 @@ demo_scenarios:
     expected_severity: medium
     mitigation_dpid: 1
 
-  # Scenario E: Clean baseline, no attacks, dashboard should stay quiet
+  # Scenario E: Clean baseline, no attacks, dashboard should remain quiet
   baseline:
     description: "Benign traffic baseline -> no alerts expected"
     data_path: data/client1.csv
