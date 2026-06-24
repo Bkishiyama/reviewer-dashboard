@@ -59,9 +59,18 @@ logger = logging.getLogger(__name__)
 RYU_REST_HOST = os.environ.get("RYU_REST_HOST", "127.0.0.1")
 RYU_REST_PORT = int(os.environ.get("RYU_REST_PORT", "8080"))
 
-# OVS passive listener, topology.py sets ptcp:6654 on s1
-OVS_SWITCH_IP = os.environ.get("OVS_SWITCH_IP",   "127.0.0.1")
-OVS_SWITCH_PORT = int(os.environ.get("OVS_SWITCH_PORT", "6654"))
+# OVS passive listeners — topology.py sets a dedicated ptcp port per
+# switch so the raw-OpenFlow fallback can target the correct dpid instead
+# of always landing on s1 regardless of which switch the alert is for.
+OVS_SWITCH_IP = os.environ.get("OVS_SWITCH_IP", "127.0.0.1")
+
+# dpid -> ptcp port (must match the ports configured in topology.py)
+DPID_TO_OVS_PORT = {
+    1: int(os.environ.get("OVS_SWITCH_PORT_S1", "6654")),
+    2: int(os.environ.get("OVS_SWITCH_PORT_S2", "6655")),
+    3: int(os.environ.get("OVS_SWITCH_PORT_S3", "6656")),
+}
+DEFAULT_OVS_PORT = DPID_TO_OVS_PORT[1]  # fallback for unknown dpid
 
 # Flow rule parameters for HITL mitigations
 HITL_COOKIE = 0xFEEDFACECAFE0004  # identifies Tool 4 rules in ovs-ofctl output
@@ -92,6 +101,7 @@ OXM_FIELD_IP_PROTO = 10
 OXM_FIELD_IPV4_SRC = 11
 OXM_FIELD_TCP_DST = 14
 OXM_FIELD_UDP_DST = 16
+OXM_FIELD_ETH_SRC = 4
 OFPP_ANY = 0xFFFFFFFF
 OFPG_ANY = 0xFFFFFFFF
 OFP_NO_BUFFER = 0xFFFFFFFF
@@ -186,14 +196,12 @@ class Mitigator:
         ryu_host: str = RYU_REST_HOST,
         ryu_port: int = RYU_REST_PORT,
         ovs_ip: str = OVS_SWITCH_IP,
-        ovs_port: int = OVS_SWITCH_PORT,
         log_path: str = MITIGATION_LOG_PATH,
         prefer_rest: bool = True,
     ):
         self.ryu_host = ryu_host
         self.ryu_port = ryu_port
         self.ovs_ip = ovs_ip
-        self.ovs_port = ovs_port
         self.log_path = log_path
         self.prefer_rest = prefer_rest
 
@@ -401,8 +409,13 @@ class Mitigator:
         match: dict = {
             "dl_type": "0x0800",          # IPv4
             "nw_proto": str(proto_num),   # TCP or UDP
-            "nw_src": src_ip,
         }
+        if src_ip and src_ip not in ("unknown", "0.0.0.0", ""):
+            if _is_mac_address(src_ip):
+                match["dl_src"] = src_ip
+            else:
+                match["nw_src"] = src_ip
+      
         if dst_port > 0:
             if proto_num == PROTO_TCP:
                 match["tp_dst"] = str(dst_port)
@@ -494,23 +507,26 @@ class Mitigator:
         hard_timeout: int,
     ) -> MitigationResult:
 
+      
+        ovs_port = DPID_TO_OVS_PORT.get(dpid, DEFAULT_OVS_PORT)
+
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(5)
-            sock.connect((self.ovs_ip, self.ovs_port))
+            sock.connect((self.ovs_ip, ovs_port))
         except OSError as exc:
             return MitigationResult(
-                alert_id = alert_id,
-                action = action,
-                status = MitigationStatus.FAILED,
-                src_ip = src_ip,
-                dst_port = dst_port,
-                protocol = protocol,
-                dpid = dpid,
-                method = "raw_openflow",
-                error = f"TCP connect to {self.ovs_ip}:{self.ovs_port} failed: {exc}",
+                alert_id  = alert_id,
+                action    = action,
+                status    = MitigationStatus.FAILED,
+                src_ip    = src_ip,
+                dst_port  = dst_port,
+                protocol  = protocol,
+                dpid      = dpid,
+                method    = "raw_openflow",
+                error     = f"TCP connect to {self.ovs_ip}:{ovs_port} (dpid={dpid}) failed: {exc}",
             )
-
+      
         try:
             #Handshake 
             sock.sendall(_build_hello())
@@ -600,9 +616,8 @@ def _build_role_request() -> bytes:
     body = struct.pack("!IIQ", OFPCR_ROLE_EQUAL, 0, 0)
     return _ofp_header(OFPT_ROLE_REQUEST, body, xid=4)
 
-
+# Encode one OXM TLV field (Type-Length-Value)
 def _oxm_tlv(field_id: int, value: bytes, hasmask: bool = False) -> bytes:
-    """Encode one OXM TLV field (Type-Length-Value)."""
     mask_bit = 1 if hasmask else 0
     return (
         struct.pack(
@@ -619,17 +634,49 @@ def _ip_to_bytes(ip_str: str) -> bytes:
     parts = [int(p) for p in ip_str.split(".")]
     return struct.pack("!BBBB", *parts)
 
+# Convert a colon-separated MAC string to 6 bytes
+def _mac_to_bytes(mac_str: str) -> bytes:
+    parts = [int(p, 16) for p in mac_str.split(":")]
+    if len(parts) != 6:
+        raise ValueError(f"Not a MAC address: {mac_str}")
+    return struct.pack("!BBBBBB", *parts)
+
+"""
+True if value looks like a MAC address (xx:xx:xx:xx:xx:xx), False if
+it looks like an IPv4 address or anything else.
+
+The live collector (ryu_collector.py) stores MAC addresses in the
+src_ip/dst_ip fields for L2-only flows, while Tool 3's synthetic demo
+data uses real dotted-decimal IPv4 addresses in the same fields. This
+lets mitigator.py build the correct OXM match type for either source.
+"""
+def _is_mac_address(value: str) -> bool:
+    parts = value.split(":")
+    return len(parts) == 6 and all(
+        len(p) == 2 and all(c in "0123456789abcdefABCDEF" for c in p)
+        for p in parts
+    )
+
 """
 Build the OXM match block for the HITL FlowMod.
+
+The live collector (ryu_collector.py) stores MAC addresses in the
+src_ip field for L2-only flows; Tool 3's synthetic demo data uses
+real IPv4 addresses in the same field. This builds the correct OXM
+match type for whichever one is actually present, instead of always
+assuming IPv4 and silently dropping the source match on a MAC string.
+
 Matches:
-- EtherType = 0x0800 (IPv4)
-- IP protocol = proto_num (TCP=6, UDP=17, ICMP=1)
-- IPv4 source = src_ip
-- TCP/UDP dst port = dst_port if > 0 and not ICMP
+  - EtherType = 0x0800 (IPv4) — always included for TCP/UDP/ICMP demos
+  - IP protocol = proto_num (TCP=6, UDP=17, ICMP=1)
+  - Source = IPv4 (OXM_FIELD_IPV4_SRC) or MAC (OXM_FIELD_ETH_SRC),
+    whichever src_ip actually looks like
+  - TCP/UDP dst port = dst_port (if > 0 and not ICMP)
 """
 def _build_oxm_match(
-    src_ip: str,
-    dst_port: int,
+def _build_oxm_match(
+    src_ip:    str,
+    dst_port:  int,
     proto_num: int,
 ) -> bytes:
     oxm = b""
@@ -637,10 +684,22 @@ def _build_oxm_match(
     oxm += _oxm_tlv(OXM_FIELD_IP_PROTO, struct.pack("!B", proto_num))
 
     if src_ip and src_ip not in ("unknown", "0.0.0.0", ""):
-        try:
-            oxm += _oxm_tlv(OXM_FIELD_IPV4_SRC, _ip_to_bytes(src_ip))
-        except (ValueError, struct.error):
-            logger.warning("[Mitigator] Could not encode src_ip=%s — skipping IP match", src_ip)
+        if _is_mac_address(src_ip):
+            try:
+                oxm += _oxm_tlv(OXM_FIELD_ETH_SRC, _mac_to_bytes(src_ip))
+            except (ValueError, struct.error):
+                logger.warning(
+                    "[Mitigator] Could not encode MAC src_ip=%s — skipping source match",
+                    src_ip,
+                )
+        else:
+            try:
+                oxm += _oxm_tlv(OXM_FIELD_IPV4_SRC, _ip_to_bytes(src_ip))
+            except (ValueError, struct.error):
+                logger.warning(
+                    "[Mitigator] Could not encode IPv4 src_ip=%s — skipping source match",
+                    src_ip,
+                )
 
     if dst_port > 0 and proto_num != PROTO_ICMP:
         field = OXM_FIELD_TCP_DST if proto_num == PROTO_TCP else OXM_FIELD_UDP_DST
@@ -650,6 +709,7 @@ def _build_oxm_match(
     raw = struct.pack("!HH", OFPMT_OXM, match_len) + oxm
     # Pad to 8-byte boundary
     return raw + b"\x00" * ((8 - len(raw) % 8) % 8)
+
 
 """
 Build a complete OFPFlowMod message.
