@@ -322,11 +322,11 @@ class SDNSanitizerController(app_manager.RyuApp):
         return global_model, report
 
 
- # REST API Handler (Tools 2 + 4)
- # Ryu WSGI REST API handler. Implements the /fl/* endpoints (Tool 2) 
- # and /hitl/* endpoints (Tool 4). All responses are JSON. 
- # Ryu's WSGI layer runs this in a gevent greenlet,
- #so standard Python threading.Lock is safe to use for _hitl_lock.
+# REST API Handler (Tools 2 + 4)
+# Ryu WSGI REST API handler. Implements the /fl/* endpoints (Tool 2) 
+# and /hitl/* endpoints (Tool 4). All responses are JSON. 
+# Ryu's WSGI layer runs this in a gevent greenlet,
+#so standard Python threading.Lock is safe to use for _hitl_lock.
 class FLSanitizerAPI(ControllerBase):
     def __init__(self, req, link, data, **config):
         super().__init__(req, link, data, **config)
