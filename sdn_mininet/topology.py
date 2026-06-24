@@ -202,27 +202,18 @@ def start_inject_attack(net):
 # Print the attack-window timestamp for post-hoc CSV labeling
 def label_attack_flows(net):
     Y = "\033[93m"  # yellow
-    R = "\033[0m"  # reset
+    R = "\033[0m"   # reset
+
+    attack_start = time.time()
+
     info(
-        f"\n{Y}[!] Attack window started at: {time.strftime('%Y-%m-%dT%H:%M:%S')}{R}\n"
-        "{Y}--> Record this timestamp. After the run, use:{R}\n"
-        "{Y}    python3 sdn_mininet/label_window.py \\\n"
-        "      --file data/live_client2.csv --all --label 1{R}\n\n"
+        f"\n{Y}[!] Attack window START: {time.strftime('%Y-%m-%dT%H:%M:%S')}{R}\n"
+        f"{Y}--> Record this timestamp. After the run, use:{R}\n"
+        f"{Y}    python3 sdn_mininet/label_window.py \\\n"
+        f"      --file data/live_client2.csv --all --label 1{R}\n\n"
     )
-  def label_attack_flows(net):
-      Y = "\033[93m"  # yellow
-      R = "\033[0m"   # reset
 
-      attack_start = time.time()
-
-      info(
-          f"\n{Y}[!] Attack window START: {time.strftime('%Y-%m-%dT%H:%M:%S')}{R}\n"
-          f"{Y}--> Record this timestamp. After the run, use:{R}\n"
-          f"{Y}    python3 sdn_mininet/label_window.py \\\n"
-          f"      --file data/live_client2.csv --all --label 1{R}\n\n"
-      )
-
-      return attack_start
+    return attack_start
 
 
 LABEL_SCRIPT_HINT = """
