@@ -2,7 +2,7 @@
 # Configuration for the multi-round Federated Learning simulation.
 # Used by: python cli.py simulate-fl --config config/fed_config.yaml
 
-# Client data
+# Where client data gets stored
 client_data:
   - data/client1.csv
   - data/client2.csv
@@ -27,7 +27,7 @@ n_estimators: 100 # Isolation Forest trees per client per round
 # Output
 model_dir: models/ # where to save per-round and global models
 
-# --- Tool 2 settings (added) ---
+# --- Tool 2 settings are for sanitization ---
  
 # Enable Byzantine-robust Z-score sanitizer before FedAvg aggregation
 # Set to false to reproduce Tool 1 (naive FedAvg) behavior
