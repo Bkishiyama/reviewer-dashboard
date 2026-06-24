@@ -665,7 +665,6 @@ Matches:
   - TCP/UDP dst port = dst_port (if > 0 and not ICMP)
 """
 def _build_oxm_match(
-def _build_oxm_match(
     src_ip:    str,
     dst_port:  int,
     proto_num: int,
