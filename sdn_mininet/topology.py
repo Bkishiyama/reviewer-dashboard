@@ -3,11 +3,12 @@ from __future__ import annotations
 
 """ sdn_mininet/topology.py 
 Purpose: To build the Mininet topology within an SDN 
-This topology is used for Tools 1, 2, and 3.
+This topology is used for Tools 1, 2, 3, and 4.
 Summary:
 Tool 1: FL anomaly detection -> ryu_collector.py polls flow stats -> CSVs
 Tool 2: Poisoning defense -> h6 runs poisoned_host.py; cleaned by sanitizer.py
 Tool 3: FlowMod injection -> attacker (h7) runs injector.py; HTTP traffic dropped on s1
+Tool 4: This if to display results to the user.
 h7 is added to the topology <-> s1; h7 runs injector.py
 h2 has HTTP on port 80 and the injection target s1
 s1 gets a passive OVS listener on ptcp:6654 -> allows injector to connect
@@ -71,7 +72,7 @@ class FederatedSDNTopo(Topo):
         h5 = self.addHost("h5", ip="10.0.0.5/8", mac="00:00:00:00:03:01")
         h6 = self.addHost("h6", ip="10.0.0.6/8", mac="00:00:00:00:03:02")
 
-        # Tool 3: attacker host added
+        # Tool 3: attacker host added to s1
         # h7 is placed on s1 and injects FlowMod; affects h1/h2 traffic.
         # h7 uses a separate MAC/IP to avoid collisions with existing hosts.
         h7 = self.addHost("h7", ip="10.0.0.7/8", mac="00:00:00:00:01:07")
@@ -86,14 +87,14 @@ class FederatedSDNTopo(Topo):
         self.addLink(h7, s1)   # Tool 3: attacker added to s1
 
 
-""" *** Traffic Generators ***
-Launch normal traffic across the topology.
-Uses iperf3 (TCP + UDP), ping, and HTTP so the Ryu collector
-Tool 1 continues to capture a realistic data flow.
-Tool 3 -> I added h2 to run an HTTP server on port 80.
+""" Traffic Generators
+This functions is used to generate normal traffic across the network.
+Use iperf3 (TCP + UDP), ping, and HTTP so the Ryu collector Tool 1 captures 
+a realistic data flow. In Tool 3, I added h2 to run an HTTP server on port 80.
 This gives the injector a target to block.
 """
 def start_benign_traffic(net, duration: int):
+    # use a wrapper to create a Linux host to generate traffic using iperf
     h1 = net.get("h1")
     h2 = net.get("h2")
     h3 = net.get("h3")
@@ -127,11 +128,10 @@ def start_benign_traffic(net, duration: int):
         f"  curl -s http://10.0.0.3:8080 > /dev/null; sleep 3; done &"
     )
 
-    # (Added)Tool 3: HTTP server on h2 port 80
-    # h2 serves HTTP on port 80.  Before injection, h1 gets pages
-    # normally. After Tool 3 executes, the injected FlowMod drops all
-    # TCP/80 traffic on s1. h1's requests will time out but pings
-    # to h2 continues working - to show evasion proof.
+    # Tool 3: HTTP server on h2 port 80
+    # h2 serves HTTP on port 80.  Before injection, h1 gets normal traffic. 
+    # For Tool Tool 3, if executed, the injected FlowMod drops all TCP/80 traffic on s1. 
+    # h1's requests will time out but pings to h2 continues working.
     h2.cmd("python3 -m http.server 80 > /tmp/http_h2_port80.log 2>&1 &")
 
     # h1 to h2: periodic HTTP requests establishes a flow baseline for Tool 1
@@ -144,9 +144,9 @@ def start_benign_traffic(net, duration: int):
 
 
 """
-Tool's 2 attack traffic from designated attacker hosts.
+This function launches malicious traffic from hosts h4 and h6.  
 Labels are set manually after the run using label_window.py.
-h4 = DDoS SYN flood, h6 = port scanner remain from Tool 2.
+h4 = DDoS SYN flood, h6 = port scanner and FL poisoner.
 """
 def start_attack_traffic(net, duration: int):
     h4 = net.get("h4")   # Tool 2: DDoS attacker
@@ -154,7 +154,7 @@ def start_attack_traffic(net, duration: int):
 
     info("[!] Starting Tool 2 attack traffic generators\n")
 
-    # DDoS: SYN flood from h4 -> h1 (will limit rate for VM stability)
+    # Start the DDoS: SYN flood from h4 -> h1 
     info("[!] DDoS SYN flood: h4 -> h1 (10.0.0.1:80)\n")
     h4.cmd(
         f"timeout {duration} hping3 -S -p 80 "
@@ -175,13 +175,11 @@ def start_attack_traffic(net, duration: int):
 
 """
 Tool 3: run the FlowMod injector from h7.
-
 h7 executes injector.py:
 1. Sniffs loopback OF traffic on port 6633 to confirm the control channel
 2. Connects to s1's passive listener (ptcp:6654)
 3. Performs an OF v1.3 handshake
 4. Injects a high-priority FlowMod -> drops TCP/80 traffic on s1
-
 The --skip-sniff flag is used here because h7 runs inside Mininet's
 network namespace and cannot sniff the host loopback.  The sniff phase
 is still useful when running injector.py directly from the host terminal.
@@ -203,11 +201,13 @@ def start_inject_attack(net):
 
 # Print the attack-window timestamp for post-hoc CSV labeling
 def label_attack_flows(net):
+    Y = "\033[93m"  # yellow
+    R = "\033[0m"  # reset
     info(
-        f"\n*** Attack window started at: {time.strftime('%Y-%m-%dT%H:%M:%S')}\n"
-        "--> Record this timestamp. After the run, use:\n"
-        "    python3 sdn_mininet/label_window.py \\\n"
-        "      --file data/live_client2.csv --all --label 1\n\n"
+        f"\n{Y}[!] Attack window started at: {time.strftime('%Y-%m-%dT%H:%M:%S')}{R}\n"
+        "{Y}--> Record this timestamp. After the run, use:{R}\n"
+        "{Y}    python3 sdn_mininet/label_window.py \\\n"
+        "      --file data/live_client2.csv --all --label 1{R}\n\n"
     )
 
 
@@ -233,7 +233,7 @@ def run(run_attacks: bool = False, run_inject: bool = False, duration: int = 60)
     info("[!] Starting network\n")
     net.start()
 
-    # Added Tool 3: configure OVS passive listener on s1
+    # Tool 3: configure OVS passive listener on s1
     # ptcp:6654 puts s1 into server mode on port 6654 so the injector can
     # open a direct OpenFlow session with the switch.  The primary Ryu
     # connection on port 6633 is preserved and unaffected.
@@ -241,8 +241,8 @@ def run(run_attacks: bool = False, run_inject: bool = False, duration: int = 60)
     info("[!] Tool 3: enabling OVS passive listener on s1 (ptcp:6654)\n")
     s1.cmd(
         "ovs-vsctl set-controller s1 "
-        "tcp:127.0.0.1:6633 "    # keep existing Ryu connection
-        "ptcp:6654"              # add passive listener for injector
+        "tcp:127.0.0.1:6633 "  # keep existing Ryu connection
+        "ptcp:6654"   # add passive listener for injector
     )
     s1.cmd("ovs-vsctl set bridge s1 protocols=OpenFlow13")
     s1.cmd("ovs-vsctl set bridge s1 fail-mode=standalone")
