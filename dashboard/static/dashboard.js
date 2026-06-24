@@ -2,16 +2,6 @@
  * Tool 4 HITL Dashboard Logic
  * This file is used with dashboard/templates/index.html.
  * Responsibilities:
- *   1.  State management: single source of truth for all alerts + UI state
- *   2.  API layer: typed fetch wrappers for every app.py endpoint
- *   3.  Alert list render: virtualized-style diff to avoid full redraws
- *   4.  Detail panel: full alert detail with animated feature bars
- *   5.  Decision flow: approve/monitor/ignore with mitigation feedback
- *   6.  Live chart: rolling severity histogram (last 60 scans)
- *   7.  Notifications: new-alert badge flashing + optional audio ping
- *   8.  Keyboard nav: j/k to move, a/m/i to decide, r to refresh
- *   9.  Unblock form: manual rule removal without going to the CLI
- *  10.  Export: download current alert list as CSV
  * Usage:
  * index.html loads this file last, after DOM:
  * <script src="/static/dashboard.js" defer></script>
@@ -19,7 +9,7 @@
 
 'use strict';
 
-// 1. Config
+// 1. Configurations you can alter
 const CFG = {
   apiBase: '',  // same-origin; override to 'http://localhost:5000' if needed
   pollInterval: 5_000,  // ms between background refreshes
@@ -30,28 +20,29 @@ const CFG = {
   newAlertSound: 440,  // Hz for Web Audio ping on new HIGH alerts
 };
 
-// 2. State
+// 2. App State
 const State = {
-  alerts: [],  // full list from /api/alerts, newest first
-  currentId: null,  // alert_id currently shown in detail panel
-  tab: 'all',  // 'all' | 'pending' | 'resolved'
+  alerts: [],  // array of alerts from /api/alerts, newest first
+  currentId: null,  // current alert_id shown in detail panel
+  tab: 'all',  // tab that is active: 'all' | 'pending' | 'resolved'
   seenIds: new Set(),  // alert_ids rendered before - for new-alert detection
   pollTimer: null,
   chartData: { high: [], medium: [], low: [], labels: [] },
-  audioCtx: null, // lazily created AudioContext
-  unblockOpen: false,
+  audioCtx: null, // web audio API created, AudioContext, if needed
+  unblockOpen: false, // unblock modal
 };
 
 // 3. DOM shortcuts
 const $ = id => document.getElementById(id);
 
-// Safe innerText setter, escapes HTML entities
+// Safe innerText setter, escapes HTML entities - prevents XSS
 function setText(id, val) {
   const el = $(id);
   if (el) el.textContent = val ?? '—';
 }
 
-// 4. Formatting helpers
+// 4. Formatting helpers - to help read
+// show in MB, KB
 function fmtBytes(n) {
   n = Number(n) || 0;
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(2) + ' MB';
@@ -59,6 +50,7 @@ function fmtBytes(n) {
   return n + ' B';
 }
 
+// add commas to numbers
 function fmtNum(n) {
   return Number(n).toLocaleString();
 }
@@ -72,6 +64,7 @@ function fmtUptime(s) {
   return `${h}h ${m}m`;
 }
 
+// show as just now, 2m ago, 1h ago
 function fmtAge(unixTs) {
   const d = Math.round(Date.now() / 1000 - unixTs);
   if (d < 5) return 'just now';
@@ -92,9 +85,9 @@ function extractPattern(explanation) {
 
 // 5. Severity / add colors
 const SEV_COLORS = {
-  high:   { fg: '#ef4444', bg: '#2d1414', border: '#ef4444' },
+  high: { fg: '#ef4444', bg: '#2d1414', border: '#ef4444' },
   medium: { fg: '#f59e0b', bg: '#2d2008', border: '#f59e0b' },
-  low:    { fg: '#3b82f6', bg: '#0d1f3c', border: '#3b82f6' },
+  low: { fg: '#3b82f6', bg: '#0d1f3c', border: '#3b82f6' },
 };
 
 function sevColor(sev) { return (SEV_COLORS[sev] || SEV_COLORS.low).fg; }
@@ -106,14 +99,14 @@ function confColor(pct) {
   return '#3b82f6';
 }
 
-// Bar fill colour by |Z| magnitude
+// Color based on how extreme feature deviation is
 function zColor(absZ) {
   if (absZ >= 3) return '#ef4444';
   if (absZ >= 2) return '#f59e0b';
   return '#3b82f6';
 }
 
-// Decision pill style
+// Decision pill style for pending, approved, etc.
 function pillStyle(decision) {
   const m = {
     pending: 'background:#2a2030;color:#a78bfa',
@@ -124,7 +117,7 @@ function pillStyle(decision) {
   return m[decision] || m.pending;
 }
 
-// 6. API layer
+// 6. API layer - all communications goes through these functions
 async function apiFetch(path, opts = {}) {
   const url = CFG.apiBase + path;
   const r = await fetch(url, {
@@ -138,6 +131,7 @@ async function apiFetch(path, opts = {}) {
   return r.json();
 }
 
+// grouped API endpoints
 const API = {
   health: () => apiFetch('/api/health'),
   alerts: (state='') => apiFetch(`/api/alerts${state ? '?state=' + state : ''}`),
