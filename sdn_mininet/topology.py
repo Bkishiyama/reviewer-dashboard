@@ -263,9 +263,17 @@ def run(run_attacks: bool = False, run_inject: bool = False, duration: int = 60)
     start_benign_traffic(net, duration)
 
     if run_attacks:
-        time.sleep(5)   # a few seconds of benign-only baseline
-        label_attack_flows(net)
+        info(LABEL_SCRIPT_HINT)
+        time.sleep(5)
+        attack_start = label_attack_flows(net)
         start_attack_traffic(net, duration - 5)
+
+        attack_end = time.time()
+        info(f"\033[93m[!] Attack window END:   {time.strftime('%Y-%m-%dT%H:%M:%S')}\033[0m\n")
+
+        # Save both timestamps for labeling
+        with open("/tmp/attack_window.txt", "w") as f:
+            f.write(f"{attack_start},{attack_end}\n")
 
     if run_inject:
         # Wait so Tool 1 records some normal HTTP flow data,
@@ -287,18 +295,7 @@ def run(run_attacks: bool = False, run_inject: bool = False, duration: int = 60)
     info("[!] Stopping network\n")
     net.stop()
 
-    if run_attacks:
-        info(LABEL_SCRIPT_HINT)
-        time.sleep(5)
-        attack_start = label_attack_flows(net)
-        start_attack_traffic(net, duration - 5)
 
-        attack_end = time.time()
-        info(f"\033[93m[!] Attack window END:   {time.strftime('%Y-%m-%dT%H:%M:%S')}\033[0m\n")
-
-        # Save both timestamps for labeling
-        with open("/tmp/attack_window.txt", "w") as f:
-            f.write(f"{attack_start},{attack_end}\n")
 
 
 if __name__ == "__main__":
