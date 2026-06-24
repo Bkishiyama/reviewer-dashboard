@@ -209,6 +209,20 @@ def label_attack_flows(net):
         "{Y}    python3 sdn_mininet/label_window.py \\\n"
         "      --file data/live_client2.csv --all --label 1{R}\n\n"
     )
+  def label_attack_flows(net):
+      Y = "\033[93m"  # yellow
+      R = "\033[0m"   # reset
+
+      attack_start = time.time()
+
+      info(
+          f"\n{Y}[!] Attack window START: {time.strftime('%Y-%m-%dT%H:%M:%S')}{R}\n"
+          f"{Y}--> Record this timestamp. After the run, use:{R}\n"
+          f"{Y}    python3 sdn_mininet/label_window.py \\\n"
+          f"      --file data/live_client2.csv --all --label 1{R}\n\n"
+      )
+
+      return attack_start
 
 
 LABEL_SCRIPT_HINT = """
@@ -284,6 +298,16 @@ def run(run_attacks: bool = False, run_inject: bool = False, duration: int = 60)
 
     if run_attacks:
         info(LABEL_SCRIPT_HINT)
+        time.sleep(5)
+        attack_start = label_attack_flows(net)
+        start_attack_traffic(net, duration - 5)
+
+        attack_end = time.time()
+        info(f"\033[93m[!] Attack window END:   {time.strftime('%Y-%m-%dT%H:%M:%S')}\033[0m\n")
+
+        # Save both timestamps for labeling
+        with open("/tmp/attack_window.txt", "w") as f:
+            f.write(f"{attack_start},{attack_end}\n")
 
 
 if __name__ == "__main__":
