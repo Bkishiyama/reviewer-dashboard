@@ -238,18 +238,43 @@ def run(run_attacks: bool = False, run_inject: bool = False, duration: int = 60)
     info("[!] Starting network\n")
     net.start()
 
-    # Tool 3: configure OVS passive listener on s1
-    # ptcp:6654 puts s1 into server mode on port 6654 so the injector can
-    # open a direct OpenFlow session with the switch.  The primary Ryu
-    # connection on port 6633 is preserved and unaffected.
+    # Tool 3: configure OVS passive listener on s1 (ptcp:6654)
+    # ptcp puts the switch into server mode so a raw-socket client (the
+    # injector, or Tool 4's mitigator fallback) can open a direct OpenFlow
+    # session with that specific switch.  The primary Ryu connection on
+    # port 6633 is preserved and unaffected.
     s1 = net.get("s1")
     info("[!] Tool 3: enabling OVS passive listener on s1 (ptcp:6654)\n")
     s1.cmd(
         "ovs-vsctl set-controller s1 "
-        "tcp:127.0.0.1:6633 "  # keep existing Ryu connection
-        "ptcp:6654"   # add passive listener for injector
+        "tcp:127.0.0.1:6633 "    # keep existing Ryu connection
+        "ptcp:6654"              # add passive listener for injector
     )
     s1.cmd("ovs-vsctl set bridge s1 protocols=OpenFlow13")
+
+    # Tool 4: extend the same passive-listener pattern to s2/s3 so the
+    # mitigator's raw-OpenFlow fallback can target alerts on dpid=2/dpid=3
+    # directly, not just dpid=1.  Ports 6655/6656 are dedicated to s2/s3
+    # respectively, distinct from s1's 6654 so a stale dpid mapping can
+    # never silently land a FlowMod on the wrong switch.
+    s2 = net.get("s2")
+    info("[!] Tool 4: enabling OVS passive listener on s2 (ptcp:6655)\n")
+    s2.cmd(
+        "ovs-vsctl set-controller s2 "
+        "tcp:127.0.0.1:6633 "
+        "ptcp:6655"
+    )
+    s2.cmd("ovs-vsctl set bridge s2 protocols=OpenFlow13")
+
+    s3 = net.get("s3")
+    info("[!] Tool 4: enabling OVS passive listener on s3 (ptcp:6656)\n")
+    s3.cmd(
+        "ovs-vsctl set-controller s3 "
+        "tcp:127.0.0.1:6633 "
+        "ptcp:6656"
+    )
+    s3.cmd("ovs-vsctl set bridge s3 protocols=OpenFlow13")
+
     s1.cmd("ovs-vsctl set bridge s1 fail-mode=standalone")
     info("[!] Topology connections:\n")
     dumpNodeConnections(net.hosts)
