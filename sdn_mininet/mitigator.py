@@ -20,23 +20,23 @@ constants and packet-builder functions from injector.py. It is NOT the Tool 3 at
 the cookie, priority, and log messages are clearly seen as a legitimate HITL 
 mitigation from the rogue injection.
 Actions:
-  BLOCK: install a permanent DROP rule for the offending src IP
-  THROTTLE: install a rate-limiting rule (meter-based, if switch supports it;
-  otherwise falls back to a lower-priority DROP with short idle timeout)
-  UNBLOCK: delete a previously installed DROP rule for a src IP
+BLOCK: install a permanent DROP rule for the offending src IP
+THROTTLE: install a rate-limiting rule (meter-based, if switch supports it;
+otherwise falls back to a lower-priority DROP with short idle timeout)
+UNBLOCK: delete a previously installed DROP rule for a src IP
 Mitigation log: Every action, success or failure, is added to results/mitigator.log so the 
 user has a full audit trail of every SDN change made by Tool 4.
 Usage (called by dashboard/app.py after operator approves an alert):
-    from sdn_mininet.mitigator import Mitigator, MitigationResult
-    m = Mitigator()
-    result = m.block(
-        src_ip = "10.0.0.4",
-        dst_port = 80,
-        protocol = "tcp",
-        dpid = 1,
-        alert_id = "a1b2c3d4",
-    )
-    print(result.summary())
+from sdn_mininet.mitigator import Mitigator, MitigationResult
+m = Mitigator()
+result = m.block(
+    src_ip = "10.0.0.4",
+    dst_port = 80,
+    protocol = "tcp",
+    dpid = 1,
+    alert_id = "a1b2c3d4",
+)
+print(result.summary())
 """
 
 import json
@@ -121,7 +121,6 @@ PROTOCOL_MAP = {
 
 
 # Result dataclass
-
 class MitigationAction(str, Enum):
     BLOCK = "block"
     THROTTLE = "throttle"
@@ -209,13 +208,11 @@ class Mitigator:
 
     
     """  Public API 
-    Install a DROP flow rule for traffic from src_ip to dst_port.
-    The rule is permanent (idle_timeout=IDLE_TIMEOUT_S, hard_timeout=0)
-    and carries HITL_COOKIE so it can be identified in:
+    Install a DROP flow rule for traffic from src_ip to dst_port. The rule is permanent 
+    (idle_timeout=IDLE_TIMEOUT_S, hard_timeout=0) and carries HITL_COOKIE so it can be identified in:
     ovs-ofctl dump-flows s1 -O OpenFlow13
-    Priority is HITL_PRIORITY (30000) and above normal forwarding rules
-    (priority 1) but below the Tool 3 rogue injection (priority 40000),
-    so a HITL block can be overridden in demos without changing constants.
+    Priority is HITL_PRIORITY (30000) and above normal forwarding rules (priority 1) but below Tool 3 is 
+    rogue injection (priority 40000), so a HITL block can be overridden in demos without changing constants.
     """
     def block(
         self,
@@ -243,11 +240,11 @@ class Mitigator:
         return result
 
     """
-    Install a short-lived DROP rule, idle_timeout=60s, as a traffic throttle. 
-    The rule expires if traffic stops, so it self-cleans. Note: True rate limiting 
-    requires meter support, OF 1.3 meters. OVS in Mininet supports meters but the 
-    current topology does not configure them, so this is implemented as a time-limited DROP.
-    The dashboard labels this "throttle" to distinguish it from a permanent block.
+    Install a short-lived DROP rule, idle_timeout=60s, as a traffic throttle. The rule expires 
+    if traffic stops, so it self-cleans. Note: True rate limiting requires meter support, 
+    OF 1.3 meters. OVS in Mininet supports meters but the current topology does not configure 
+    them, so this is implemented as a time-limited DROP. The dashboard labels this "throttle" 
+    to distinguish it from a permanent block.
     """
     def throttle(
         self,
@@ -276,9 +273,8 @@ class Mitigator:
         return result
 
     """
-    Remove a previously installed BLOCK or THROTTLE rule for src_ip.
-    Uses OFPFC_DELETE_STRICT with the HITL_COOKIE to avoid accidentally
-    deleting normal forwarding rules that happen to match the same fields.
+    Remove a previously installed BLOCK or THROTTLE rule for src_ip. Uses OFPFC_DELETE_STRICT with 
+    the HITL_COOKIE to avoid accidentally deleting normal forwarding rules that happen to match the same fields.
     """
     def unblock(
         self,
@@ -642,12 +638,9 @@ def _mac_to_bytes(mac_str: str) -> bytes:
     return struct.pack("!BBBBBB", *parts)
 
 """
-True if value looks like a MAC address (xx:xx:xx:xx:xx:xx), False if
-it looks like an IPv4 address or anything else.
-
-The live collector (ryu_collector.py) stores MAC addresses in the
-src_ip/dst_ip fields for L2-only flows, while Tool 3's synthetic demo
-data uses real dotted-decimal IPv4 addresses in the same fields. This
+True if value looks like a MAC address (xx:xx:xx:xx:xx:xx), False if it looks like an IPv4 address.
+The live collector (ryu_collector.py) stores MAC addresses in the src_ip/dst_ip fields for L2 flows, 
+while Tool 3's synthetic demo data uses real dotted-decimal IPv4 addresses in the same fields. This
 lets mitigator.py build the correct OXM match type for either source.
 """
 def _is_mac_address(value: str) -> bool:
@@ -660,12 +653,10 @@ def _is_mac_address(value: str) -> bool:
 """
 Build the OXM match block for the HITL FlowMod.
 
-The live collector (ryu_collector.py) stores MAC addresses in the
-src_ip field for L2-only flows; Tool 3's synthetic demo data uses
-real IPv4 addresses in the same field. This builds the correct OXM
-match type for whichever one is actually present, instead of always
-assuming IPv4 and silently dropping the source match on a MAC string.
-
+The live collector (ryu_collector.py) stores MAC addresses in the src_ip field for L2-only flows; 
+Tool 3's synthetic demo data uses real IPv4 addresses in the same field. This builds the correct OXM
+match type for whichever one is actually present, instead of always assuming IPv4 and silently 
+dropping the source match on a MAC string.
 Matches:
   - EtherType = 0x0800 (IPv4) — always included for TCP/UDP/ICMP demos
   - IP protocol = proto_num (TCP=6, UDP=17, ICMP=1)
@@ -712,8 +703,7 @@ def _build_oxm_match(
 
 
 """
-Build a complete OFPFlowMod message.
-For BLOCK / THROTTLE (OFPFC_ADD):
+Build a complete OFPFlowMod message. For BLOCK / THROTTLE (OFPFC_ADD):
 - No actions / instructions → DROP
 - Uses HITL_COOKIE to distinguish from Tool 3 rogue rules
 For UNBLOCK (OFPFC_DELETE_STRICT):
@@ -757,8 +747,7 @@ def _build_flowmod(
 
 """
 Read OpenFlow messages from the socket until one with expected_type arrives.
-Returns the raw message bytes, or None on timeout/error.
-Mirrors the same helper in injector.py.
+Returns the raw message bytes, or None on timeout/error. Mirrors the same helper in injector.py.
 """
 def _read_until(sock: socket.socket, expected_type: int, max_bytes: int = 4096) -> Optional[bytes]:
     try:
@@ -778,10 +767,9 @@ def _read_until(sock: socket.socket, expected_type: int, max_bytes: int = 4096) 
 
 # Verification helper used by dashboard and CLI
 """
-Run ovs-ofctl dump-flows and filter for HITL_COOKIE rules. Returns the raw ovs-ofctl 
-output lines matching Tool 4 rules, or an error string if ovs-ofctl is not available.
-Used by the dashboard's /api/verify endpoint and the CLI's
-python3 cli.py hitl --verify flag.
+Run ovs-ofctl dump-flows and filter for HITL_COOKIE rules. Returns the raw ovs-ofctl output lines 
+matching Tool 4 rules, or an error string if ovs-ofctl is not available. Used by the dashboard's 
+/api/verify endpoint and the CLI's python3 cli.py hitl --verify flag.
 """
 def verify_rule_installed(dpid: int = 1) -> str:
     import subprocess
