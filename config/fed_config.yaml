@@ -11,6 +11,7 @@ client_data:
   - data/client5.csv
   - data/client6.csv
 
+# In FL, an independent data owner is called a client. In my model, I call them hosts.
 client_ids:
   - client1
   - client2
