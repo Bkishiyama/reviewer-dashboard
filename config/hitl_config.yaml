@@ -16,6 +16,7 @@ detection:
   # Produced by: python3 cli.py federate --models "models/client*.pkl"
   #              --out models/global.pkl
   # (env: MODEL_PATH)
+  # Note: (env: <variable>) -> This annotation shows the name of the environment variable that can override the YAML value.
   model_path: models/global.pkl
 
   # Flow CSV to score.  In live mode this is one of the files written continuously by ryu_collector.py.
@@ -56,7 +57,7 @@ alert_queue:
   # (env: ALERT_QUEUE_MAX_SIZE)
   max_size: 500
 
-  # After an alert is resolved (approved / monitored / ignored), how many seconds to keep it visible 
+  # After an alert is resolved (approved/monitored/ignored), how many seconds to keep it visible 
   # in the "Resolved" tab before it is eligible for eviction.  0 = evict immediately when queue is full.
   # (env: RESOLVED_RETENTION_SECONDS)
   resolved_retention_seconds: 3600   # 1 hour
@@ -142,7 +143,7 @@ mitigation:
 
   # OpenFlow cookie for all Tool 4 rules 
   # Visible in: ovs-ofctl dump-flows s1 -O OpenFlow13
-  # Tool 3 rogue rule uses 0xDEADBEEFCAFE0001
+  # Tool 3, recall - rule uses 0xDEADBEEFCAFE0001
   # (env: HITL_COOKIE)
   cookie: "0xFEEDFACECAFE0004"
 
@@ -168,7 +169,6 @@ mitigation:
   throttle_idle_timeout_seconds: 60
 
   # Whether to try the Ryu REST API first, true, or go directly to the raw OpenFlow socket, false.
-  # Leave true for normal operation.
   # (env: PREFER_REST)
   prefer_rest: true
 
@@ -189,13 +189,12 @@ explainer:
   max_top_features: 3
 
   # Z-score magnitude thresholds for the intensity words used in explanations
-  # ("extremely", "significantly", "notably", "slightly").
+  # "extremely", "significantly", "notably", "slightly" (<1.5)
   # Adjust if your traffic baselines produce unusually high or low Z-scores.
   z_intensity:
     extremely: 4.0   # |Z| ≥ 4.0
     significantly: 2.5  # |Z| ≥ 2.5
     notably: 1.5   # |Z| ≥ 1.5
-    # |Z| < 1.5 → "slightly"
 
   # Multiplier threshold for adding "X.X x baseline" to feature descriptions.
   # Only shown when flow_value / baseline_mean >= this value.
@@ -253,15 +252,15 @@ logging:
   # Path to write server log file.  null = log to stdout only.
   file: null
 
-  # Path to write the HITL audit log (alert decisions + scan events).
-  # Separate from the mitigation log (which only records SDN rule changes).
+  # Path to write the HITL audit log; alert decisions + scan events.
+  # Separate from the mitigation log - which only records SDN rule changes.
   hitl_audit_log: results/hitl_audit.log
 
 # 10. DEMO SCENARIOS: Pre-configured attack scenarios for the video demonstration.
-# Run with: python3 cli.py demo-hitl --scenario <name>
+# Run with: python3 cli.py demo-hitl --scenario <name>   <-------------------
 # Each scenario specifies which data file to use and which attacks to simulate.
 demo_scenarios:
-  # Scenario A: DDoS from h4 (s2 / live_client2.csv)
+  # Scenario A: DDoS from h4 (s2/live_client2.csv)
   ddos:
     description: "DDoS SYN flood from h4 targeting h1:80"
     data_path: data/live_client2.csv
@@ -271,7 +270,7 @@ demo_scenarios:
     expected_severity: high
     mitigation_dpid: 2
 
-  # Scenario B: Port scan from h6 (s3 / live_client3.csv)
+  # Scenario B: Port scan from h6 (s3/live_client3.csv)
   port_scan:
     description: "nmap port scan from h6 across 10.0.0.0/8"
     data_path: data/live_client3.csv
@@ -297,7 +296,7 @@ demo_scenarios:
 
   # Scenario D: Flow table exhaustion from randomised source IPs
   fte:
-    description: "Flow table exhaustion — many random short-lived flows"
+    description: "Flow table exhaustion -> many random short-lived flows"
     data_path: data/new_flows.csv
     model_path: models/global.pkl
     attack_host: mixed
@@ -307,7 +306,7 @@ demo_scenarios:
 
   # Scenario E: Clean baseline, no attacks, dashboard should stay quiet
   baseline:
-    description: "Benign traffic baseline — no alerts expected"
+    description: "Benign traffic baseline -> no alerts expected"
     data_path: data/client1.csv
     model_path: models/global.pkl
     attack_host: none
