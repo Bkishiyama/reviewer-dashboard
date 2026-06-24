@@ -217,10 +217,10 @@ def label_attack_flows(net):
 
 
 LABEL_SCRIPT_HINT = """
-After traffic generation, label the attack flows:
-  python3 sdn_mininet/label_window.py \\
-    --file data/live_client2.csv \\
-    --all --label 1
+After traffic generation, label the attack flows using the timestamps in /tmp/attack_window.txt:
+  python3 sdn_mininet/label_window.py \
+    --file data/live_client2.csv \
+    --attack-window /tmp/attack_window.txt
 """
 
 
