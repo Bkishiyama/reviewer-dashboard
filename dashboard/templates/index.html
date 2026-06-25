@@ -489,7 +489,7 @@
   <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;
     padding:20px;width:660px;max-height:80vh;display:flex;flex-direction:column;gap:12px;">
     <div style="display:flex;justify-content:space-between;align-items:center;">
-      <span style="font-weight:600;font-size:14px;">Flow rules on s1 (DPID 1)</span>
+      <span id="verify-title" style="font-weight:600;font-size:14px;">Flow rules on s1 (DPID 1)</span>
       <button class="btn" onclick="closeOverlay('verify-overlay')">✕ Close</button>
     </div>
     <pre id="verify-output"
@@ -527,6 +527,7 @@ const POLL = 5000;  // ms between alert list refreshes
 // State 
 let allAlerts = [];
 let currentAlertId = null;
+let currentAlertDpid = null;
 let currentTab = 'all';
 let pollTimer = null;
 
@@ -714,6 +715,7 @@ async function selectAlert(id) {
 }
 
 function renderDetail(a) {
+  currentAlertDpid = a.dpid || 1;
   $('detail-placeholder').style.display = 'none';
   $('detail-view').className = 'detail-view visible';
 
@@ -875,13 +877,15 @@ async function triggerScan() {
   }
 }
 
-// Verify rules modal
+// Verify rules modal: checks which switch the current alert belongs to. 
 async function verifyRules() {
+  const dpid = currentAlertDpid || 1;
   const ov = $('verify-overlay');
   ov.style.display = 'flex';
-  $('verify-output').textContent = 'Running ovs-ofctl dump-flows s1 …';
+  $('verify-title').textContent = `Flow rules on s${dpid} (DPID ${dpid})`;
+  $('verify-output').textContent = `Running ovs-ofctl dump-flows s${dpid} …`;
   try {
-    const r = await fetch(`${API}/api/mitigation/verify?dpid=1`);
+    const r = await fetch(`${API}/api/mitigation/verify?dpid=${dpid}`);
     const d = await r.json();
     $('verify-output').textContent = d.rules || '(no output)';
   } catch {
