@@ -7,15 +7,14 @@ injection attack on switch 1, from h7, and stops http traffic. The default --sni
 6633 to match the Ryu controller port used by Tools 1 and 2. The original value was 6653,
 which is Ryu's standard IANA-assigned OpenFlow port.
 
-This demonstrates that defense-in-depth requires protecting:
-- the ML pipeline
-- AND the SDN control plane
+This attack proves that defense-in-depth requires protecting the ML pipeline as well as
+the SDN control plane.
 
 USAGE
 python3 sdn_mininet/injector.py
 To skip sniffing and inject immediately:
 python3 sdn_mininet/injector.py --skip-sniff
-To block SSH instead of HTTP:
+Test to block SSH instead of HTTP:
 python3 sdn_mininet/injector.py --target-port 22 --skip-sniff
 
 topology.py --inject automatically launches this script from h7
