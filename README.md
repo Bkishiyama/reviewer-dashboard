@@ -90,7 +90,7 @@ GitHub MCV assisted
 
 ---
 
-## Network Topology
+## Initial Network Topology
 
 ![Architecture Diagram](docs/sdn_fl_T4.svg)
 draw.io assisted
@@ -114,7 +114,7 @@ draw.io assisted
 ![Program Overview](docs/hitl.drawio.svg)
 draw.io assisted
 
-### System Flow
+### Planned System Flow
 
 ![System Flow](docs/HITLarchi.drawio.svg)
 draw.io assisted
