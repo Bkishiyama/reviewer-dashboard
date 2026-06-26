@@ -165,10 +165,8 @@ def _build_oxm_match(target_port: int) -> bytes:
 
 
 """ 
-Build a malicious OpenFlow FlowMod message
-This FlowMod installs a high-priority DROP rule into the switch. 
-Any packets matching the rule are dropped. 
-In OpenFlow 1.3, a FlowMod contains: 
+To build a malicious OpenFlow FlowMod message, install a high-priority DROP rule into switch 1. 
+So, any packets matching the rule are dropped. In OpenFlow 1.3, a FlowMod contains: 
 1. A fixed-length header/body section 
 2. Match fields or what traffic to match 
 3. Instructions on what to do with matching traffic 
@@ -191,10 +189,8 @@ pad(2): Alignment padding required by OF 1.3
 # H = uint16 (2 bytes) 
 # I = uint32 (4 bytes) 
 # xx = 2 bytes of padding 
-Format string: 
-"!QQBBHHHIIIHxx" 
-"!" means: 
-Use network byte order (big-endian), which is required by OpenFlow. 
+Format string: "!QQBBHHHIIIHxx" 
+"!" means use big-endian network byte order, as required by OpenFlow. 
 """
 def build_drop_flowmod(target_port: int, priority: int) -> bytes:
     fixed = struct.pack(
