@@ -1,15 +1,13 @@
 /** dashboard/static/dashboard.js
- * Tool 4 HITL Dashboard Logic
+ * Tool 4 User Involved Dashboard Logic
  * This file is used with dashboard/templates/index.html.
- * Responsibilities:
- * Usage:
  * index.html loads this file last, after DOM:
  * <script src="/static/dashboard.js" defer></script>
  */
 
 'use strict';
 
-// 1. Configurations you can alter
+// Configurations that can be adjusted
 const CFG = {
   apiBase: '',  // same-origin; override to 'http://localhost:5000' if needed
   pollInterval: 5_000,  // ms between background refreshes
@@ -17,14 +15,14 @@ const CFG = {
   animBarDelay: 30,  // ms stagger between feature bar animations
   toastDuration: 6_000,  // ms before mitigation toast fades
   audioEnabled: false,  // toggled by operator via bell button
-  newAlertSound: 440,  // Hz for Web Audio ping on new HIGH alerts
+  newAlertSound: 440,  // Hz for Web Audio ping on new HIGH alerts - still not working
 };
 
-// 2. App State
+// App State
 const State = {
   alerts: [],  // array of alerts from /api/alerts, newest first
   currentId: null,  // current alert_id shown in detail panel
-  tab: 'all',  // tab that is active: 'all' | 'pending' | 'resolved'
+  tab: 'all',  // tab that is active: 'all' - 'pending' - 'resolved'
   seenIds: new Set(),  // alert_ids rendered before - for new-alert detection
   pollTimer: null,
   chartData: { high: [], medium: [], low: [], labels: [] },
@@ -32,7 +30,7 @@ const State = {
   unblockOpen: false, // unblock modal
 };
 
-// 3. DOM shortcuts
+// DOM shortcuts
 const $ = id => document.getElementById(id);
 
 // Safe innerText setter, escapes HTML entities - prevents XSS
@@ -41,8 +39,7 @@ function setText(id, val) {
   if (el) el.textContent = val ?? '—';
 }
 
-// 4. Formatting helpers - to help read
-// show in MB, KB
+// Format helpers - helps read: show in MB, KB
 function fmtBytes(n) {
   n = Number(n) || 0;
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(2) + ' MB';
@@ -55,6 +52,7 @@ function fmtNum(n) {
   return Number(n).toLocaleString();
 }
 
+// convert seconds to hours and minutes
 function fmtUptime(s) {
   s = Math.round(s);
   if (s < 60)   return `${s}s`;
@@ -64,7 +62,7 @@ function fmtUptime(s) {
   return `${h}h ${m}m`;
 }
 
-// show as just now, 2m ago, 1h ago
+// displays just now, 2m ago, 1h ago
 function fmtAge(unixTs) {
   const d = Math.round(Date.now() / 1000 - unixTs);
   if (d < 5) return 'just now';
@@ -73,6 +71,7 @@ function fmtAge(unixTs) {
   return `${Math.floor(d / 3600)}h ago`;
 }
 
+// show scores to 4 decimal places
 function fmtScore(n) {
   return Number(n).toFixed(4);
 }
@@ -83,23 +82,25 @@ function extractPattern(explanation) {
   return m ? m[1].trim() : 'Anomaly detected';
 }
 
-// 5. Severity / add colors
+// Severity: add colors
 const SEV_COLORS = {
   high: { fg: '#ef4444', bg: '#2d1414', border: '#ef4444' },
   medium: { fg: '#f59e0b', bg: '#2d2008', border: '#f59e0b' },
   low: { fg: '#3b82f6', bg: '#0d1f3c', border: '#3b82f6' },
 };
 
+// use foreground colors for severity
 function sevColor(sev) { return (SEV_COLORS[sev] || SEV_COLORS.low).fg; }
 function sevBg(sev) { return (SEV_COLORS[sev] || SEV_COLORS.low).bg; }
 
+// if high confidence, return red. med, ret amber; low, ret blue
 function confColor(pct) {
   if (pct >= 80) return '#ef4444';
   if (pct >= 55) return '#f59e0b';
   return '#3b82f6';
 }
 
-// Color based on how extreme feature deviation is
+// Color based on how extreme feature deviation is (red, amber, blue)
 function zColor(absZ) {
   if (absZ >= 3) return '#ef4444';
   if (absZ >= 2) return '#f59e0b';
@@ -117,7 +118,7 @@ function pillStyle(decision) {
   return m[decision] || m.pending;
 }
 
-// 6. API layer - all communications goes through these functions
+// API layer - all communications goes through these functions
 async function apiFetch(path, opts = {}) {
   const url = CFG.apiBase + path;
   const r = await fetch(url, {
@@ -144,11 +145,12 @@ const API = {
   unblock: body => apiFetch('/api/mitigation/unblock', { method: 'POST', body: JSON.stringify(body) }),
 };
 
-// 7. POLLING LOOP
+// Polling loop to get data from server and stay up to date
 async function pollAll() {
   await Promise.allSettled([refreshHealth(), refreshAlerts()]);
 }
 
+// update system health metrics
 async function refreshHealth() {
   try {
     const d = await API.health();
@@ -160,6 +162,7 @@ async function refreshHealth() {
   }
 }
 
+// poll dashboard and show green if connected, red if offline
 function setServerOnline(online) {
   const dot = $('server-status-dot');
   const text = $('server-status-text');
@@ -168,6 +171,7 @@ function setServerOnline(online) {
   text.textContent = online ? 'connected' : 'offline';
 }
 
+// update the alert list
 async function refreshAlerts() {
   try {
     const d = await API.alerts();
@@ -177,6 +181,7 @@ async function refreshAlerts() {
     State.alerts = d.alerts || [];
     State.alerts.forEach(a => State.seenIds.add(a.alert_id));
 
+    // call update functions after new data arrives
     renderAlertList();
     renderStats();
     updateChartData();
@@ -197,17 +202,18 @@ async function refreshAlerts() {
   }
 }
 
-// 8. Alert list render
-
+// Alert list render
+// filter alerts to show a specific alert
 function filteredAlerts() {
   if (State.tab === 'pending') return State.alerts.filter(a => a.decision === 'pending');
   if (State.tab === 'resolved') return State.alerts.filter(a => a.decision !== 'pending');
   return State.alerts;
 }
 
+// show list of new data and clear old
 function renderAlertList() {
   const list = filteredAlerts();
-  const el   = $('alert-list');
+  const el = $('alert-list');
   if (!el) return;
 
   // Tab badge counts
@@ -222,19 +228,21 @@ function renderAlertList() {
   el.innerHTML = list.map((a, idx) => alertRowHTML(a, idx)).join('');
 }
 
+// empty state when no alert are received
 function emptyStateMsg() {
   if (State.tab === 'pending')  return 'No pending alerts — network looks clean.';
   if (State.tab === 'resolved') return 'No resolved alerts yet.';
   return 'No alerts yet. Click ⚡ Scan now to run detection.';
 }
 
+// HTML builder for a single alert
 function alertRowHTML(a, idx) {
   const active = a.alert_id === State.currentId ? ' active' : '';
   const pattern = extractPattern(a.explanation);
   const color = sevColor(a.severity);
   const cColor = confColor(a.confidence_pct);
   const isNew = idx === 0 && State.tab !== 'resolved' ? ' new-alert' : '';
-
+  // return severity color bar, alert ID, timestamp, extracted pattern, src/des IP & port, protocol, confidence badge, decision pill
   return `<div class="alert-row${active}${isNew}"
                data-id="${esc(a.alert_id)}"
                onclick="Dashboard.selectAlert('${esc(a.alert_id)}')">
@@ -261,6 +269,7 @@ function alertRowHTML(a, idx) {
   </div>`;
 }
 
+// update tab badges upon new alerts
 function updateTabCounts(pendingCount) {
   // Pending tab badge
   const pb = $('tab-pending-count');
@@ -276,10 +285,10 @@ function updateTabCounts(pendingCount) {
   }
 }
 
-// 9. Detail Panel
+// Detail Panel
+// tasks to do's when user clicks an alert
 async function selectAlert(id) {
   State.currentId = id;
-
   // Highlight in list immediately (optimistic)
   document.querySelectorAll('.alert-row').forEach(r => {
     r.classList.toggle('active', r.dataset.id === id);
@@ -294,6 +303,7 @@ async function selectAlert(id) {
   }
 }
 
+// show or hide the alert detail panel 
 function showDetailPanel(visible) {
   const placeholder = $('detail-placeholder');
   const view = $('detail-view');
@@ -303,6 +313,7 @@ function showDetailPanel(visible) {
 }
 
   // Header
+// show details in the alert panel after updating the severity.
 function renderDetail(a) {
   const chip = $('d-sev-chip');
   if (chip) {
