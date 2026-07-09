@@ -1,4 +1,7 @@
 from __future__ import annotations
+import eventlet  # added due to Ubun 22.04/Python 3.10
+eventlet.monkey_patch()
+
 #!/usr/bin/env python3
 """
 sdn_mininet/ryu_collector.py: Ryu SDN Controller + Flow Stats Collector with Byzantine
