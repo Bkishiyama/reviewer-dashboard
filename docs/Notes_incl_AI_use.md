@@ -17,7 +17,6 @@ If you want to see more action, and have Ubuntu 20.04, run it:
 ## AI Use
 
 I primarily use Microsoft Edge for my research which is powered by Microsoft Co-Pilot. 
-No returns were directed at Stack Overflow.
 Co-Pilot seem to go down so I switched to Chat-GPT. 
 Mostly, Co-Pilot help me develop my tool as I fed in my project that I have been working on.
 Since the semester, I have been interested in Software Defined Networks (SDNs) and Machine Learning. 
@@ -44,3 +43,4 @@ Amin et al. is what I wanted to do. But, I am staying flexible and hopefully can
 I use FlexClip to generate .jpg pictures. I have a license to create AI images that are not subject to copyright laws. I use drawio to create .svg diagrams; this contains pre-drawn shapes but does not rely on AI.
 
 PyCharm used to help with code completion.
+I used Visual Studio Code to develop my dashboard. I used GitHub Codespaces connected to Visual Studio Code to help make my Dashboard. Codespaces allow running my repository in the Cloud along with VS Code and Ubuntu 22.04 (container). Debugger and VS Code extensions are attached. Please see my video setup for VS Code. As an instructor for NVC, I get Codespaces Pro for free. This is offered to students as well. Included is Copilot agents, part of Copilot AI, that can modify code and propose changes. I accepted changes to my Dashboard. I did not accept proposed changes to my overall project. I had agents check the health of my project, i.e., "Check my project and look for any errors." I also did not accept some of the error that Copilot found. In order to fix it, I would have to rewrite some of my programs.  
