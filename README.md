@@ -13,6 +13,21 @@ and human-centered threat response.
 
 ---
 
+## Video Presentation
+
+Watch my videos:
+
+> 🎥 [To be added](https://youtu.be/--piwDzTGkY)  
+> 📚 with [Copy-and-Paste commands](https://1drv.ms/w/c/0b9ef4570f82165e/IQAq_i-HaHxiR68uXXBLw-1_AXld-KmNJMdVscRaK2X4Nhg?e=iAmRyj)
+
+> 🎥 [Visual Studio Code](https://youtu.be/MVw3uOJcdss)
+> I use Visual Studio Code for my dashboard. I attach GitHub Codespaces, and add-ins as shown in the video, which includes CoPilot AI usage.
+
+> Note: Tools 1 and 2, built in Ubuntu 20.04, have not been tested. I added Tool 3 as part of Ubuntu 22.04 for DigitalOcean along with all requirements.
+> When installing, some 20.04 library errors result. So, I installed different library versions to account for the Ubuntu 22.04 installation.
+
+---
+
 ## Table of contents
 
 1. [Project Overview](#project-overview)
