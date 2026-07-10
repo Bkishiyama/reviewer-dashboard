@@ -172,35 +172,35 @@ class SDNSanitizerController(app_manager.RyuApp):
         src_mac = eth_pkt.src
         dpid = datapath.id
 
-        # Cache IP-layer information for this flow.
+        # Cache IP-layer information for this flow. July 10 change.******* update
         # Every first packet passes through packet_in before a forwarding rule is installed.
         # We extract IP/TCP/UDP headers here so _stat_to_row can write real IPs and ports.
-        ip_pkt   = pkt.get_protocol(ipv4.ipv4)
-        tcp_pkt  = pkt.get_protocol(tcp.tcp)
-        udp_pkt  = pkt.get_protocol(udp.udp)
+        ip_pkt = pkt.get_protocol(ipv4.ipv4)
+        tcp_pkt = pkt.get_protocol(tcp.tcp)
+        udp_pkt = pkt.get_protocol(udp.udp)
         icmp_pkt = pkt.get_protocol(icmp.icmp)
 
         if ip_pkt:
             if tcp_pkt:
-                proto    = "tcp"
+                proto = "tcp"
                 dst_port = tcp_pkt.dst_port
                 src_port = tcp_pkt.src_port
             elif udp_pkt:
-                proto    = "udp"
+                proto = "udp"
                 dst_port = udp_pkt.dst_port
                 src_port = udp_pkt.src_port
             elif icmp_pkt:
-                proto    = "icmp"
+                proto = "icmp"
                 dst_port = 0
                 src_port = 0
             else:
-                proto    = "ipv4"
+                proto = "ipv4"
                 dst_port = 0
                 src_port = in_port
 
             self._flow_ip_cache[(dpid, src_mac, dst_mac)] = {
-                "src_ip":   ip_pkt.src,
-                "dst_ip":   ip_pkt.dst,
+                "src_ip": ip_pkt.src,
+                "dst_ip": ip_pkt.dst,
                 "protocol": proto,
                 "dst_port": dst_port,
                 "src_port": src_port,
@@ -326,17 +326,17 @@ class SDNSanitizerController(app_manager.RyuApp):
         cache = self._flow_ip_cache.get((dpid, src_mac, dst_mac), {})
         return {
             "timestamp": ts,
-            "dpid":      dpid,
-            "src_ip":    cache.get("src_ip",   self.mac_to_ip.get(src_mac, src_mac)),
-            "dst_ip":    cache.get("dst_ip",   self.mac_to_ip.get(dst_mac, dst_mac)),
-            "src_port":  cache.get("src_port", match.get("in_port", 0)),
-            "dst_port":  cache.get("dst_port", 0),
-            "protocol":  cache.get("protocol", "ethernet"),
-            "bytes":     stat.byte_count,
-            "packets":   stat.packet_count,
-            "duration":  round(duration, 6),
-            "flags":     "",
-            "label":     0,
+            "dpid": dpid,
+            "src_ip": cache.get("src_ip",   self.mac_to_ip.get(src_mac, src_mac)),
+            "dst_ip": cache.get("dst_ip",   self.mac_to_ip.get(dst_mac, dst_mac)),
+            "src_port": cache.get("src_port", match.get("in_port", 0)),
+            "dst_port": cache.get("dst_port", 0),
+            "protocol": cache.get("protocol", "ethernet"),
+            "bytes": stat.byte_count,
+            "packets": stat.packet_count,
+            "duration": round(duration, 6),
+            "flags": "",
+            "label": 0,
         }
 
     # Get or create a CSV writer for a specific client.
@@ -395,11 +395,10 @@ class FLSanitizerAPI(ControllerBase):
         self.controller: SDNSanitizerController = data[REST_APP_NAME]
 
     # Tool 2: FL endpoints
+    # Client pushes its local model metric.
+    # Body: {"host_id": "h1", "metric": 0.12}
     @route("fl", "/fl/upload", methods=["POST"])
     def upload_metric(self, req, **kwargs):
-        """Client pushes its local model metric.
-        Body: {"host_id": "h1", "metric": 0.12}
-        """
         try:
             body = json.loads(req.body)
             host_id = str(body["host_id"])
@@ -478,8 +477,8 @@ class FLSanitizerAPI(ControllerBase):
     Called by external scripts that want to surface an alert to the dashboard through 
     the Ryu REST layer rather than waiting for the dashboard's auto-scanner to pick 
     it up from the live CSV. The dashboard does NOT depend on this endpoint for its 
-    core loop. It reads live_client*.csv directly. This is an optional fast-path
-     for custom integrations. Request body (JSON) with defaults applied:
+    core loop. It reads live_client*.csv directly. This is an optional fast-path for 
+    custom integrations. Request body (JSON) with defaults applied:
        {
          "src_ip": "10.0.0.4",
          "dst_ip": "10.0.0.1",
@@ -524,7 +523,7 @@ class FLSanitizerAPI(ControllerBase):
         }
         with _hitl_lock:
             _hitl_alert_queue.append(alert)
-            # Evict oldest entry when the queue is over capacity
+            # Evict oldest entry when the queue is full
             if len(_hitl_alert_queue) > HITL_QUEUE_MAX:
                 _hitl_alert_queue.pop(0)
             global _hitl_last_alert_at
