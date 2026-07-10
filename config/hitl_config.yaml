@@ -33,19 +33,21 @@ detection:
   # Confidence is derived from anomaly rank within the scored batch: top-ranked flow = ~100%, bottom = ~0%.
   # Raise this to reduce alert noise; lower it to catch subtler attacks.
   # Corresponds to MIN_ALERT_CONFIDENCE in app.py (env: MIN_ALERT_CONFIDENCE)
-  min_confidence: 50.0
+  # Too many incoming alerts. So, I am raising confidence level from 50 to 90 (Jul 10) <-------------Jul 10 readjust----------------------
+  min_confidence: 90.0
 
   # Maximum number of new alerts created per scan batch. Prevents the dashboard from being flooded 
   # during a large-scale attack where hundreds of flows are flagged simultaneously (env: MAX_ALERTS_PER_SCAN)
-  max_alerts_per_scan: 20
+  # Too many incoming alerts. Lowering from 20 to 3 to reduce the number of incoming alerts <----------Jul 10 readjust---------------
+  max_alerts_per_scan: 3
 
   # Additional live CSV files to scan in round-robin during auto-scan.
   # Useful when the topology has multiple switches writing separate CSVs.
   # Leave empty to scan only data_path.
   # Example (live Mininet mode):
   # extra_data_paths:
-  #   - data/live_client2.csv
-  #   - data/live_client3.csv
+  # - data/live_client2.csv
+  # - data/live_client3.csv
   extra_data_paths: []
 
 
