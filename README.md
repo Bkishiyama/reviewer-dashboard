@@ -866,3 +866,5 @@ permissive behavior.
 - Traffic appears in live_client3.csv under Ubuntu's bridge MAC, not Kali's or
   IoTGoat's original MAC directly. This is expected, since Ubuntu routes
   between the two subnets and re-frames packets at L2
+- IPerf traffic it being picked up as anomaly. I try to train it as normal but it is still having problems.
+  
