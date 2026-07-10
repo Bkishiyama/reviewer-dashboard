@@ -1,5 +1,5 @@
 from __future__ import annotations
-import eventlet  # added due to Ubun 22.04/Python 3.10
+import eventlet
 eventlet.monkey_patch()
 
 #!/usr/bin/env python3
@@ -108,6 +108,10 @@ class SDNSanitizerController(app_manager.RyuApp):
         self._writers = {} # CSV DictWriter objects
         self._files = {} # Open file handles
         self._row_counts = defaultdict(int) # Rows written per client
+        # IP-layer cache: (dpid, src_mac, dst_mac) -> {src_ip, dst_ip, protocol, dst_port, src_port}
+        # Populated by packet_in_handler so _stat_to_row can write real IPs and ports
+        # instead of MAC addresses and zeros.
+        self._flow_ip_cache: Dict[tuple, dict] = {}
         # Tool 2: register REST API handler
         wsgi = kwargs["wsgi"]
         wsgi.register(FLSanitizerAPI, {REST_APP_NAME: self})
@@ -164,6 +168,41 @@ class SDNSanitizerController(app_manager.RyuApp):
         dst_mac = eth_pkt.dst
         src_mac = eth_pkt.src
         dpid = datapath.id
+
+        # Cache IP-layer information for this flow.
+        # Every first packet passes through packet_in before a forwarding rule is installed.
+        # We extract IP/TCP/UDP headers here so _stat_to_row can write real IPs and ports.
+        ip_pkt   = pkt.get_protocol(ipv4.ipv4)
+        tcp_pkt  = pkt.get_protocol(tcp.tcp)
+        udp_pkt  = pkt.get_protocol(udp.udp)
+        icmp_pkt = pkt.get_protocol(icmp.icmp)
+
+        if ip_pkt:
+            if tcp_pkt:
+                proto    = "tcp"
+                dst_port = tcp_pkt.dst_port
+                src_port = tcp_pkt.src_port
+            elif udp_pkt:
+                proto    = "udp"
+                dst_port = udp_pkt.dst_port
+                src_port = udp_pkt.src_port
+            elif icmp_pkt:
+                proto    = "icmp"
+                dst_port = 0
+                src_port = 0
+            else:
+                proto    = "ipv4"
+                dst_port = 0
+                src_port = in_port
+
+            self._flow_ip_cache[(dpid, src_mac, dst_mac)] = {
+                "src_ip":   ip_pkt.src,
+                "dst_ip":   ip_pkt.dst,
+                "protocol": proto,
+                "dst_port": dst_port,
+                "src_port": src_port,
+            }
+
         # Learn the source MAC -> port mapping
         self.mac_to_port.setdefault(dpid, {})
         self.mac_to_port[dpid][src_mac] = in_port
@@ -255,8 +294,10 @@ class SDNSanitizerController(app_manager.RyuApp):
         datapath.send_msg(mod)
 
     # Convert an OpenFlow flow stat entry into a CSV row dict.
-    # Use MAC addresses since the L2 learning switch doesn't match on IP.
-    # Skips table-miss entries (priority=0, no src/dst MAC).
+    # Looks up the IP-layer cache populated by packet_in_handler so the row
+    # contains real IPv4 addresses, protocol names, and port numbers rather
+    # than MAC addresses and zeros. Falls back to MAC addresses if no IP
+    # packet was seen for this flow (e.g. ARP or pure L2 traffic).
     def _stat_to_row(self, stat, dpid, ts) -> dict:
         match = stat.match
         src_mac = match.get("eth_src", "")
@@ -265,14 +306,16 @@ class SDNSanitizerController(app_manager.RyuApp):
         if not src_mac or not dst_mac:
             return None
         duration = stat.duration_sec + stat.duration_nsec / 1e9
+        # Look up IP-layer info cached from packet_in
+        cache = self._flow_ip_cache.get((dpid, src_mac, dst_mac), {})
         return {
             "timestamp": ts,
             "dpid": dpid,
-            "src_ip": src_mac, # MAC used in place of IP for L2 flows
-            "dst_ip": dst_mac,
-            "src_port": match.get("in_port", 0),
-            "dst_port": 0,
-            "protocol": "ethernet",
+            "src_ip":   cache.get("src_ip",   src_mac),
+            "dst_ip":   cache.get("dst_ip",   dst_mac),
+            "src_port": cache.get("src_port", match.get("in_port", 0)),
+            "dst_port": cache.get("dst_port", 0),
+            "protocol": cache.get("protocol", "ethernet"),
             "bytes": stat.byte_count,
             "packets": stat.packet_count,
             "duration": round(duration, 6),
