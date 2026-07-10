@@ -44,7 +44,7 @@ from ryu.base import app_manager
 from ryu.controller import ofp_event
 from ryu.controller.handler import CONFIG_DISPATCHER, MAIN_DISPATCHER, set_ev_cls
 from ryu.lib import hub
-from ryu.lib.packet import ethernet, ipv4, ipv6, packet, tcp, udp, icmp
+from ryu.lib.packet import ethernet, ipv4, ipv6, packet, tcp, udp, icmp, arp
 from ryu.ofproto import ofproto_v1_3
 from ryu.app.wsgi import ControllerBase, WSGIApplication, route
 from webob import Response
@@ -112,6 +112,9 @@ class SDNSanitizerController(app_manager.RyuApp):
         # Populated by packet_in_handler so _stat_to_row can write real IPs and ports
         # instead of MAC addresses and zeros.
         self._flow_ip_cache: Dict[tuple, dict] = {}
+        # MAC -> IP mapping built opportunistically from ARP and IPv4 packet-in payloads.
+        # Used by _stat_to_row as a fallback when _flow_ip_cache has no entry.
+        self.mac_to_ip: Dict[str, str] = {}
         # Tool 2: register REST API handler
         wsgi = kwargs["wsgi"]
         wsgi.register(FLSanitizerAPI, {REST_APP_NAME: self})
@@ -150,7 +153,7 @@ class SDNSanitizerController(app_manager.RyuApp):
             ofproto.OFPC_FRAG_NORMAL,
             ofproto.OFPCML_NO_BUFFER
         )
-        datapath.send_msg(req)   
+        datapath.send_msg(req)
 
     # Packet-In Handler (Learning Switch)
     # Handle packet-in messages and learn MAC addresses
@@ -172,36 +175,49 @@ class SDNSanitizerController(app_manager.RyuApp):
         # Cache IP-layer information for this flow.
         # Every first packet passes through packet_in before a forwarding rule is installed.
         # We extract IP/TCP/UDP headers here so _stat_to_row can write real IPs and ports.
-        ip_pkt = pkt.get_protocol(ipv4.ipv4)
-        tcp_pkt = pkt.get_protocol(tcp.tcp)
-        udp_pkt = pkt.get_protocol(udp.udp)
+        ip_pkt   = pkt.get_protocol(ipv4.ipv4)
+        tcp_pkt  = pkt.get_protocol(tcp.tcp)
+        udp_pkt  = pkt.get_protocol(udp.udp)
         icmp_pkt = pkt.get_protocol(icmp.icmp)
 
         if ip_pkt:
             if tcp_pkt:
-                proto = "tcp"
+                proto    = "tcp"
                 dst_port = tcp_pkt.dst_port
                 src_port = tcp_pkt.src_port
             elif udp_pkt:
-                proto = "udp"
+                proto    = "udp"
                 dst_port = udp_pkt.dst_port
                 src_port = udp_pkt.src_port
             elif icmp_pkt:
-                proto = "icmp"
+                proto    = "icmp"
                 dst_port = 0
                 src_port = 0
             else:
-                proto = "ipv4"
+                proto    = "ipv4"
                 dst_port = 0
                 src_port = in_port
 
             self._flow_ip_cache[(dpid, src_mac, dst_mac)] = {
-                "src_ip": ip_pkt.src,
-                "dst_ip": ip_pkt.dst,
+                "src_ip":   ip_pkt.src,
+                "dst_ip":   ip_pkt.dst,
                 "protocol": proto,
                 "dst_port": dst_port,
                 "src_port": src_port,
             }
+
+        # Learn MAC -> IP opportunistically from packet-in payloads.
+        # This allows flow CSVs and dashboard alerts to show IPv4 addresses
+        # while preserving MAC fallback for non-IP traffic.
+        arp_pkt = pkt.get_protocol(arp.arp)
+        if arp_pkt and arp_pkt.src_ip:
+            self.mac_to_ip[src_mac] = arp_pkt.src_ip
+        ipv4_pkt = pkt.get_protocol(ipv4.ipv4)
+        if ipv4_pkt and ipv4_pkt.src:
+            self.mac_to_ip[src_mac] = ipv4_pkt.src
+            if ipv4_pkt.dst and dst_mac and dst_mac != "ff:ff:ff:ff:ff:ff":
+                # Best-effort reverse mapping for destination host when known.
+                self.mac_to_ip.setdefault(dst_mac, ipv4_pkt.dst)
 
         # Learn the source MAC -> port mapping
         self.mac_to_port.setdefault(dpid, {})
@@ -296,8 +312,8 @@ class SDNSanitizerController(app_manager.RyuApp):
     # Convert an OpenFlow flow stat entry into a CSV row dict.
     # Looks up the IP-layer cache populated by packet_in_handler so the row
     # contains real IPv4 addresses, protocol names, and port numbers rather
-    # than MAC addresses and zeros. Falls back to MAC addresses if no IP
-    # packet was seen for this flow (e.g. ARP or pure L2 traffic).
+    # than MAC addresses and zeros. Falls back to mac_to_ip ARP table, then
+    # raw MAC address for pure L2 traffic.
     def _stat_to_row(self, stat, dpid, ts) -> dict:
         match = stat.match
         src_mac = match.get("eth_src", "")
@@ -310,17 +326,17 @@ class SDNSanitizerController(app_manager.RyuApp):
         cache = self._flow_ip_cache.get((dpid, src_mac, dst_mac), {})
         return {
             "timestamp": ts,
-            "dpid": dpid,
-            "src_ip": cache.get("src_ip",   src_mac),
-            "dst_ip": cache.get("dst_ip",   dst_mac),
-            "src_port": cache.get("src_port", match.get("in_port", 0)),
-            "dst_port": cache.get("dst_port", 0),
-            "protocol": cache.get("protocol", "ethernet"),
-            "bytes": stat.byte_count,
-            "packets": stat.packet_count,
-            "duration": round(duration, 6),
-            "flags": "",
-            "label": 0,
+            "dpid":      dpid,
+            "src_ip":    cache.get("src_ip",   self.mac_to_ip.get(src_mac, src_mac)),
+            "dst_ip":    cache.get("dst_ip",   self.mac_to_ip.get(dst_mac, dst_mac)),
+            "src_port":  cache.get("src_port", match.get("in_port", 0)),
+            "dst_port":  cache.get("dst_port", 0),
+            "protocol":  cache.get("protocol", "ethernet"),
+            "bytes":     stat.byte_count,
+            "packets":   stat.packet_count,
+            "duration":  round(duration, 6),
+            "flags":     "",
+            "label":     0,
         }
 
     # Get or create a CSV writer for a specific client.
@@ -369,8 +385,9 @@ class SDNSanitizerController(app_manager.RyuApp):
 
 
 # REST API Handler (Tools 2 + 4)
-# Ryu WSGI REST API handler. Implements the /fl/* endpoints (Tool 2) and /hitl/* endpoints (Tool 4). 
-# All responses are JSON. Ryu's WSGI layer runs this in a gevent greenlet, 
+# Ryu WSGI REST API handler. Implements the /fl/* endpoints (Tool 2) 
+# and /hitl/* endpoints (Tool 4). All responses are JSON. 
+# Ryu's WSGI layer runs this in a gevent greenlet,
 # so standard Python threading.Lock is safe to use for _hitl_lock.
 class FLSanitizerAPI(ControllerBase):
     def __init__(self, req, link, data, **config):
@@ -380,8 +397,9 @@ class FLSanitizerAPI(ControllerBase):
     # Tool 2: FL endpoints
     @route("fl", "/fl/upload", methods=["POST"])
     def upload_metric(self, req, **kwargs):
-        # Client pushes its local model metric.
-        # Body: {"host_id": "h1", "metric": 0.12}
+        """Client pushes its local model metric.
+        Body: {"host_id": "h1", "metric": 0.12}
+        """
         try:
             body = json.loads(req.body)
             host_id = str(body["host_id"])
@@ -430,7 +448,7 @@ class FLSanitizerAPI(ControllerBase):
 
     # Return current upload queue and last known global model
     @route("fl", "/fl/status", methods=["GET"])
-    def get_status(self, req, **kwargs):  
+    def get_status(self, req, **kwargs):
         return Response(
             content_type="application/json",
             charset="utf-8",
@@ -460,8 +478,8 @@ class FLSanitizerAPI(ControllerBase):
     Called by external scripts that want to surface an alert to the dashboard through 
     the Ryu REST layer rather than waiting for the dashboard's auto-scanner to pick 
     it up from the live CSV. The dashboard does NOT depend on this endpoint for its 
-    core loop. It reads live_client*.csv directly. This is an optional fast-path 
-    for custom integrations. Request body (JSON) with defaults:
+    core loop. It reads live_client*.csv directly. This is an optional fast-path
+     for custom integrations. Request body (JSON) with defaults applied:
        {
          "src_ip": "10.0.0.4",
          "dst_ip": "10.0.0.1",
