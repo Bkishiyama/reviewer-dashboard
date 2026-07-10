@@ -172,32 +172,32 @@ class SDNSanitizerController(app_manager.RyuApp):
         # Cache IP-layer information for this flow.
         # Every first packet passes through packet_in before a forwarding rule is installed.
         # We extract IP/TCP/UDP headers here so _stat_to_row can write real IPs and ports.
-        ip_pkt   = pkt.get_protocol(ipv4.ipv4)
-        tcp_pkt  = pkt.get_protocol(tcp.tcp)
-        udp_pkt  = pkt.get_protocol(udp.udp)
+        ip_pkt = pkt.get_protocol(ipv4.ipv4)
+        tcp_pkt = pkt.get_protocol(tcp.tcp)
+        udp_pkt = pkt.get_protocol(udp.udp)
         icmp_pkt = pkt.get_protocol(icmp.icmp)
 
         if ip_pkt:
             if tcp_pkt:
-                proto    = "tcp"
+                proto = "tcp"
                 dst_port = tcp_pkt.dst_port
                 src_port = tcp_pkt.src_port
             elif udp_pkt:
-                proto    = "udp"
+                proto = "udp"
                 dst_port = udp_pkt.dst_port
                 src_port = udp_pkt.src_port
             elif icmp_pkt:
-                proto    = "icmp"
+                proto = "icmp"
                 dst_port = 0
                 src_port = 0
             else:
-                proto    = "ipv4"
+                proto = "ipv4"
                 dst_port = 0
                 src_port = in_port
 
             self._flow_ip_cache[(dpid, src_mac, dst_mac)] = {
-                "src_ip":   ip_pkt.src,
-                "dst_ip":   ip_pkt.dst,
+                "src_ip": ip_pkt.src,
+                "dst_ip": ip_pkt.dst,
                 "protocol": proto,
                 "dst_port": dst_port,
                 "src_port": src_port,
@@ -311,8 +311,8 @@ class SDNSanitizerController(app_manager.RyuApp):
         return {
             "timestamp": ts,
             "dpid": dpid,
-            "src_ip":   cache.get("src_ip",   src_mac),
-            "dst_ip":   cache.get("dst_ip",   dst_mac),
+            "src_ip": cache.get("src_ip",   src_mac),
+            "dst_ip": cache.get("dst_ip",   dst_mac),
             "src_port": cache.get("src_port", match.get("in_port", 0)),
             "dst_port": cache.get("dst_port", 0),
             "protocol": cache.get("protocol", "ethernet"),
@@ -369,10 +369,9 @@ class SDNSanitizerController(app_manager.RyuApp):
 
 
 # REST API Handler (Tools 2 + 4)
-# Ryu WSGI REST API handler. Implements the /fl/* endpoints (Tool 2) 
-# and /hitl/* endpoints (Tool 4). All responses are JSON. 
-# Ryu's WSGI layer runs this in a gevent greenlet,
-#so standard Python threading.Lock is safe to use for _hitl_lock.
+# Ryu WSGI REST API handler. Implements the /fl/* endpoints (Tool 2) and /hitl/* endpoints (Tool 4). 
+# All responses are JSON. Ryu's WSGI layer runs this in a gevent greenlet, 
+# so standard Python threading.Lock is safe to use for _hitl_lock.
 class FLSanitizerAPI(ControllerBase):
     def __init__(self, req, link, data, **config):
         super().__init__(req, link, data, **config)
@@ -381,9 +380,8 @@ class FLSanitizerAPI(ControllerBase):
     # Tool 2: FL endpoints
     @route("fl", "/fl/upload", methods=["POST"])
     def upload_metric(self, req, **kwargs):
-        """Client pushes its local model metric.
-        Body: {"host_id": "h1", "metric": 0.12}
-        """
+        # Client pushes its local model metric.
+        # Body: {"host_id": "h1", "metric": 0.12}
         try:
             body = json.loads(req.body)
             host_id = str(body["host_id"])
@@ -462,8 +460,8 @@ class FLSanitizerAPI(ControllerBase):
     Called by external scripts that want to surface an alert to the dashboard through 
     the Ryu REST layer rather than waiting for the dashboard's auto-scanner to pick 
     it up from the live CSV. The dashboard does NOT depend on this endpoint for its 
-    core loop. It reads live_client*.csv directly. This is an optional fast-path
-     for custom integrations. Request body (JSON) with defaults applied:
+    core loop. It reads live_client*.csv directly. This is an optional fast-path 
+    for custom integrations. Request body (JSON) with defaults:
        {
          "src_ip": "10.0.0.4",
          "dst_ip": "10.0.0.1",
