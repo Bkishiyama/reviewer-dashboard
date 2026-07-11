@@ -30,9 +30,16 @@ Usage
   - mininet> h1 curl --max-time 3 http://10.0.0.2/  # times out (injected)
   - mininet> h1 ping -c 3 10.0.0.2  # succeeds - evasion proof
   - mininet> sh ovs-ofctl dump-flows s1 -O OpenFlow13  # shows the rogue rule
+- External attack mode (Kali -> IoTGoat through Mininet):
+  - sudo python3 sdn_mininet/topology.py --time 120 --external
+  - Kali (192.168.100.3) attacks IoTGoat (192.168.100.2) via br-iot bridge <---- I set up static addresses.
+  - Traffic routes through s1 so Ryu sees and records it
+  - Dashboard detects and blocks Kali's attack.
+IP address of Mininet br-iot is 192.168.100.211. <---This is not a static address <----- for now.
 """
 
 import argparse
+import os
 import subprocess
 import sys
 import time
@@ -52,9 +59,11 @@ s3: {h5, h6 (poison)}  —> FL client3 org -> one Isolation Forest
 For Tool 3, I add h7 as the attacker to s1:
 h7 shares s1 so it can inject FlowMods that affects HTTP traffic 
 between h1 <-> h2 as both are on the same switch.
+For external attack mode (--external), hgw is added to s1 as a gateway
+host that bridges Mininet to the IoTGoat network via br-iot.
 """
 class FederatedSDNTopo(Topo):
-    def build(self):
+    def build(self, external=False):
         # Switches
         s1 = self.addSwitch("s1", dpid="0000000000000001")
         s2 = self.addSwitch("s2", dpid="0000000000000002")
@@ -85,6 +94,16 @@ class FederatedSDNTopo(Topo):
         self.addLink(h5, s3)
         self.addLink(h6, s3)
         self.addLink(h7, s1)   # Tool 3: attacker added to s1
+
+        # External attack mode: gateway host bridges Mininet to IoTGoat network.
+        # hgw sits on s1 and forwards traffic between the Mininet 10.0.0.0/8
+        # network and the IoTGoat/Kali network (192.168.100.0/24) via br-iot.
+        # Kali (192.168.100.3) -> br-iot -> veth -> s1 -> hgw -> IoTGoat (192.168.100.2)
+        if external:
+            hgw = self.addHost("hgw",
+                ip="10.0.0.10/8",
+                mac="00:00:00:00:01:10")
+            self.addLink(hgw, s1)
 
 
 """ Traffic Generators
@@ -199,6 +218,54 @@ def start_inject_attack(net):
     )
     info("[!] Injector launched — see /tmp/injector.log for output\n")
 
+
+"""
+External attack mode: set up gateway host hgw to bridge Mininet to the
+IoTGoat network (192.168.100.0/24) via the br-iot bridge interface.
+
+Network path:
+  Kali (192.168.100.3) -> br-iot -> veth-iot/veth-s1 -> s1 (Ryu sees it)
+  -> hgw (10.0.0.10) -> IoTGoat (192.168.100.2)
+
+Ryu records all traffic passing through s1, so the dashboard can detect
+and block Kali's attack even though Kali is on an external network.
+"""
+def setup_external_gateway(net):
+    hgw = net.get("hgw")
+
+    info("[!] Setting up external gateway (hgw) for IoTGoat/Kali connectivity\n")
+
+    # Create veth pair connecting OVS s1 to the br-iot bridge.
+    # veth-s1 plugs into OVS, veth-iot plugs into br-iot.
+    os.system("sudo ip link add veth-s1 type veth peer name veth-iot 2>/dev/null || true")
+    os.system("sudo ip link set veth-s1 up")
+    os.system("sudo ip link set veth-iot up")
+
+    # Add veth-iot to the br-iot bridge so the IoTGoat/Kali network
+    # is reachable from OVS s1 via the veth pair.
+    os.system("sudo brctl addif br-iot veth-iot 2>/dev/null || true")
+
+    # Add veth-s1 to OVS switch s1 so Ryu sees all external traffic.
+    os.system("sudo ovs-vsctl add-port s1 veth-s1 2>/dev/null || true")
+
+    # Enable IP forwarding on hgw so it can route between Mininet
+    # (10.0.0.0/8) and the IoTGoat network (192.168.100.0/24).
+    hgw.cmd("echo 1 > /proc/sys/net/ipv4/ip_forward")
+
+    # Add route to IoTGoat subnet via hgw's interface.
+    hgw.cmd("ip route add 192.168.100.0/24 dev hgw-eth0")
+
+    # NAT on the Ubuntu host so Mininet hosts can reach IoTGoat.
+    # MASQUERADE rewrites the source IP so IoTGoat's replies route back correctly.
+    os.system("sudo iptables -t nat -A POSTROUTING -s 10.0.0.0/8 -o br-iot -j MASQUERADE")
+    os.system("sudo iptables -A FORWARD -i s1 -o br-iot -j ACCEPT")
+    os.system("sudo iptables -A FORWARD -i br-iot -o s1 -j ACCEPT")
+
+    info("[!] Gateway hgw (10.0.0.10) -> IoTGoat (192.168.100.2) ready\n")
+    info("[!] On Kali, run: sudo ip route add 10.0.0.0/8 via 192.168.100.2\n")
+    info("[!] Verify: mininet> hgw ping -c 3 192.168.100.2\n")
+
+
 # Print the attack-window timestamp for post-hoc CSV labeling
 def label_attack_flows(net):
     Y = "\033[93m"  # yellow
@@ -225,9 +292,10 @@ After traffic generation, label the attack flows using the timestamps in /tmp/at
 
 
 #  Main
-def run(run_attacks: bool = False, run_inject: bool = False, duration: int = 60):
+def run(run_attacks: bool = False, run_inject: bool = False,
+        run_external: bool = False, duration: int = 60):
     setLogLevel("info")
-    topo = FederatedSDNTopo()
+    topo = FederatedSDNTopo(external=run_external)
     net = Mininet(
         topo=topo,
         controller=RemoteController("ryu", ip="127.0.0.1", port=6633),
@@ -239,10 +307,9 @@ def run(run_attacks: bool = False, run_inject: bool = False, duration: int = 60)
     net.start()
 
     # Tool 3: configure OVS passive listener on s1 (ptcp:6654)
-    # ptcp puts the switch into server mode so a raw-socket client (the
-    # injector, or Tool 4's mitigator fallback) can open a direct OpenFlow
-    # session with that specific switch.  The primary Ryu connection on
-    # port 6633 is preserved and unaffected.
+    # ptcp puts the switch into server mode so a raw-socket client (the injector, 
+    # or Tool 4's mitigator fallback) can open a direct OpenFlow ession with that 
+    # specific switch. The primary Ryu connection on port 6633 is preserved and unaffected.
     s1 = net.get("s1")
     info("[!] Tool 3: enabling OVS passive listener on s1 (ptcp:6654)\n")
     s1.cmd(
@@ -252,11 +319,10 @@ def run(run_attacks: bool = False, run_inject: bool = False, duration: int = 60)
     )
     s1.cmd("ovs-vsctl set bridge s1 protocols=OpenFlow13")
 
-    # Tool 4: extend the same passive-listener pattern to s2/s3 so the
-    # mitigator's raw-OpenFlow fallback can target alerts on dpid=2/dpid=3
-    # directly, not just dpid=1.  Ports 6655/6656 are dedicated to s2/s3
-    # respectively, distinct from s1's 6654 so a stale dpid mapping can
-    # never silently land a FlowMod on the wrong switch.
+    # Tool 4: extend the same passive-listener pattern to s2/s3 so the mitigator's 
+    # raw-OpenFlow fallback can target alerts on dpid=2/dpid=3 directly, not just dpid=1.  
+    # Ports 6655/6656 are dedicated to s2/s3 respectively, distinct from s1's 6654 
+    # so a stale dpid mapping can never silently land a FlowMod on the wrong switch.
     s2 = net.get("s2")
     info("[!] Tool 4: enabling OVS passive listener on s2 (ptcp:6655)\n")
     s2.cmd(
@@ -283,6 +349,11 @@ def run(run_attacks: bool = False, run_inject: bool = False, duration: int = 60)
     net.pingAll()
 
     time.sleep(2)   # let the controller learn MACs
+
+    # External attack mode: set up the gateway host after the network starts
+    # so OVS s1 is available for the veth port attachment.
+    if run_external:
+        setup_external_gateway(net)
 
     # Start traffic
     start_benign_traffic(net, duration)
@@ -314,13 +385,30 @@ def run(run_attacks: bool = False, run_inject: bool = False, duration: int = 60)
     info("[*] mininet> h1 ping -c 3 10.0.0.2  # succeeds\n")
     info("[*] mininet> sh ovs-ofctl dump-flows s1 -O OpenFlow13\n\n")
 
+    # provide options when Kali attacks IoTGoat at IP 192.168.100.2      
+    if run_external:
+        info("[!] External attack mode active:\n")
+        info("[*] From Kali: hping3 -S --flood -V -p 80 192.168.100.2\n")
+        info("[*] From Kali: nmap -sS -p 1-1000 192.168.100.2\n")
+        info("[*] Verify in Mininet CLI: hgw ping -c 3 192.168.100.2\n\n")
+
     # Go to interactive CLI so that I can run manual tests
     CLI(net)
 
     info("[!] Stopping network\n")
+
+    # Clean up external gateway and remove veth pair, bridge port, and iptables rules upon exit
+    if run_external:
+        info("[!] Cleaning up external gateway\n")
+        os.system("sudo ovs-vsctl del-port s1 veth-s1 2>/dev/null || true")
+        os.system("sudo brctl delif br-iot veth-iot 2>/dev/null || true")
+        os.system("sudo ip link del veth-s1 2>/dev/null || true")
+        os.system("sudo iptables -t nat -D POSTROUTING -s 10.0.0.0/8 -o br-iot -j MASQUERADE 2>/dev/null || true")
+        os.system("sudo iptables -D FORWARD -i s1 -o br-iot -j ACCEPT 2>/dev/null || true")
+        os.system("sudo iptables -D FORWARD -i br-iot -o s1 -j ACCEPT 2>/dev/null || true")
+
+    # stop network      
     net.stop()
-
-
 
 
 if __name__ == "__main__":
@@ -335,10 +423,16 @@ if __name__ == "__main__":
         "--inject", action="store_true",
         help="Tool 3: also launch FlowMod injector from h7 -> drops HTTP on s1"
     )
+    # added for tool 5; the kali linux attacker
+    parser.add_argument(
+        "--external", action="store_true",
+        help="Tool 4: enable external attack mode -> routes Kali/IoTGoat traffic through s1"
+    )
     parser.add_argument(
         "--time", type=int, default=60,
         help="Traffic duration in seconds (default: 60)"
     )
     args = parser.parse_args()
 
-    run(run_attacks=args.attack, run_inject=args.inject, duration=args.time)
+    run(run_attacks=args.attack, run_inject=args.inject,
+        run_external=args.external, duration=args.time)
