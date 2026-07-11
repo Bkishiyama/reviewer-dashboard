@@ -219,22 +219,18 @@ def start_inject_attack(net):
     info("[!] Injector launched — see /tmp/injector.log for output\n")
 
 
-"""
+"""  This is for CSC 842 IoTGoat vulnerabilities
 External attack mode: set up gateway host hgw to bridge Mininet to the
 IoTGoat network (192.168.100.0/24) via the br-iot bridge interface.
-
 Network path:
   Kali (192.168.100.3) -> br-iot -> veth-iot/veth-s1 -> s1 (Ryu sees it)
   -> hgw (10.0.0.10) -> IoTGoat (192.168.100.2)
-
 Ryu records all traffic passing through s1, so the dashboard can detect
 and block Kali's attack even though Kali is on an external network.
 """
 def setup_external_gateway(net):
     hgw = net.get("hgw")
-
     info("[!] Setting up external gateway (hgw) for IoTGoat/Kali connectivity\n")
-
     # Create veth pair connecting OVS s1 to the br-iot bridge.
     # veth-s1 plugs into OVS, veth-iot plugs into br-iot.
     os.system("sudo ip link add veth-s1 type veth peer name veth-iot 2>/dev/null || true")
@@ -314,8 +310,8 @@ def run(run_attacks: bool = False, run_inject: bool = False,
     info("[!] Tool 3: enabling OVS passive listener on s1 (ptcp:6654)\n")
     s1.cmd(
         "ovs-vsctl set-controller s1 "
-        "tcp:127.0.0.1:6633 "    # keep existing Ryu connection
-        "ptcp:6654"              # add passive listener for injector
+        "tcp:127.0.0.1:6633 "  # keep existing Ryu connection
+        "ptcp:6654"  # add passive listener for injector
     )
     s1.cmd("ovs-vsctl set bridge s1 protocols=OpenFlow13")
 
@@ -376,7 +372,7 @@ def run(run_attacks: bool = False, run_inject: bool = False,
         # making the before/after contrast visible in live_client1.csv.
         time.sleep(10)
         start_inject_attack(net)
-
+    # show proof of concept for Tool 3
     info(f"\n[!] Running for {duration}s — Ryu is collecting flow stats\n")
     info("[!] Watch data/live_client*.csv grow:\n")
     info("[*] watch -n 5 wc -l data/live_client*.csv\n\n")
