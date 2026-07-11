@@ -867,4 +867,6 @@ permissive behavior.
   IoTGoat's original MAC directly. This is expected, since Ubuntu routes
   between the two subnets and re-frames packets at L2
 - IPerf traffic it being picked up as anomaly. I try to train it as normal but it is still having problems.
+- I added a conversion table MAC to IP mapping. I had trouble pinging and making static addresses. I will leave Mininet with dynamic IP addresses.
+- I continue to have library loading errors. This may confuse reviewers who see the errors althought Tool 4 works.
   
