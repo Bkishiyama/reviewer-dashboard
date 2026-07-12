@@ -208,8 +208,9 @@ iot-bridge:
 # Run this after 'make iot-bridge' to configure br-iot and s3 flow rules
 # so Kali/IoTGoat traffic crosses the patch port into Mininet.
 # br-iot is an OVS bridge (not a Linux bridge) so ovs-vsctl is used throughout.
-# The flow rules bypass OVS's loop-prevention drop that blocks patch port traffic
-# when using the default NORMAL action.
+# The flow rules bypass OVS loop-prevention and rewrite destination MACs
+# on return traffic since IoTGoat routes replies via Ubuntu (192.168.100.211)
+# rather than directly to Mininet hosts.
 iot-connect:
 	@echo "[!] Configuring br-iot flow rules to allow Mininet traffic..."
 	sudo ovs-ofctl del-flows br-iot -O OpenFlow13
@@ -233,6 +234,16 @@ iot-connect:
 	sudo ovs-ofctl add-flow s3 -O OpenFlow13 \
 		"priority=1,actions=output:patch-to-iot,NORMAL"
 	sudo sysctl -w net.ipv4.ip_forward=1
+    # Forward packets destined for Mininet (10.0.0.0/8) from br-iot to patch-to-s3
+	sudo ovs-ofctl add-flow br-iot -O OpenFlow13 \
+		"priority=200,ip,in_port=LOCAL,nw_dst=10.0.0.0/8,actions=output:patch-to-s3"
+	sudo ovs-ofctl add-flow br-iot -O OpenFlow13 \
+		"priority=200,ip,in_port=enp0s3,nw_dst=10.0.0.0/8,actions=output:patch-to-s3"
+	# Rewrite destination MAC when forwarding IoTGoat replies back to Mininet hosts
+	sudo ovs-ofctl add-flow s3 -O OpenFlow13 \
+		"priority=300,ip,in_port=4,nw_dst=10.0.0.5,actions=mod_dl_dst:00:00:00:00:03:01,output:s3-eth2"
+	sudo ovs-ofctl add-flow s3 -O OpenFlow13 \
+		"priority=300,ip,in_port=4,nw_dst=10.0.0.6,actions=mod_dl_dst:00:00:00:00:03:02,output:s3-eth3"
 	@echo "[!] IoTGoat bridge connected."
 	@echo "[!] On IoTGoat run: ip route del default && ip route add default via 192.168.100.211"
 	@echo "[!] On Kali run   : sudo ip route add 10.0.0.0/8 via 192.168.100.211"
