@@ -17,7 +17,7 @@
 # make demo-inject - run the FlowMod injection demo scenario (Tool 4)
 # make verify - show all Tool 4 flow rules installed on s1
 # make iot-bridge - connects mininet to IoTGoat and Kali
-# make iot-connect - connects the bridge and allows communication
+# make iot-connect - configures flow rules and routing for IoTGoat/Kali traffic
 # make clean - remove generated models, results, and data
 
 PYTHON = python3
@@ -191,10 +191,10 @@ clean-all: clean
 .PHONY: install \
         data train train-c1 train-c2 train-c3 aggregate detect evaluate simulate-fl all \
         hitl hitl-interactive \
-        dashboard dashboard-live \
+        dashboard dashboard-live dashboard-live-iot \
         demo-hitl demo-scan demo-inject demo-fte demo-baseline \
         verify \
-        iot-bridge iot-bridge-clean \
+        iot-bridge iot-connect iot-bridge-clean \
         clean clean-all
 
 iot-bridge:
@@ -205,17 +205,38 @@ iot-bridge:
 	fi
 	sudo bash sdn_mininet/setup_iot_bridge.sh
 
-# Run this after 'make iot-bridge' to connect Mininet s1 to br-iot
+# Run this after 'make iot-bridge' to configure br-iot and s3 flow rules
+# so Kali/IoTGoat traffic crosses the patch port into Mininet.
+# br-iot is an OVS bridge (not a Linux bridge) so ovs-vsctl is used throughout.
+# The flow rules bypass OVS's loop-prevention drop that blocks patch port traffic
+# when using the default NORMAL action.
 iot-connect:
-	sudo ip link add veth-s1 type veth peer name veth-iot 2>/dev/null || true
-	sudo ip link set veth-s1 up
-	sudo ip link set veth-iot up
-	sudo brctl addif br-iot veth-iot 2>/dev/null || true
-	sudo ovs-vsctl add-port s1 veth-s1 2>/dev/null || true
-	sudo iptables -t nat -A POSTROUTING -s 10.0.0.0/8 -o br-iot -j MASQUERADE
-	sudo iptables -A FORWARD -i s1 -o br-iot -j ACCEPT
-	sudo iptables -A FORWARD -i br-iot -o s1 -j ACCEPT
-	@echo "[!] s1 connected to br-iot -> Kali traffic now routes through Ryu"
+	@echo "[!] Configuring br-iot flow rules to allow Mininet traffic..."
+	sudo ovs-ofctl del-flows br-iot -O OpenFlow13
+	sudo ovs-ofctl add-flow br-iot -O OpenFlow13 \
+		"priority=200,arp,arp_tpa=192.168.100.211,actions=LOCAL"
+	sudo ovs-ofctl add-flow br-iot -O OpenFlow13 \
+		"priority=150,in_port=LOCAL,actions=output:enp0s3,output:patch-to-s3"
+	sudo ovs-ofctl add-flow br-iot -O OpenFlow13 \
+		"priority=100,in_port=patch-to-s3,actions=output:enp0s3,output:LOCAL"
+	sudo ovs-ofctl add-flow br-iot -O OpenFlow13 \
+		"priority=100,in_port=enp0s3,actions=output:patch-to-s3,output:LOCAL"
+	sudo ovs-ofctl del-flows s3 -O OpenFlow13
+	sudo ovs-ofctl add-flow s3 -O OpenFlow13 \
+		"priority=200,arp,actions=flood"
+	sudo ovs-ofctl add-flow s3 -O OpenFlow13 \
+		"priority=200,icmp,actions=flood"
+	sudo ovs-ofctl add-flow s3 -O OpenFlow13 \
+		"priority=100,in_port=4,dl_dst=00:00:00:00:03:01,actions=output:2"
+	sudo ovs-ofctl add-flow s3 -O OpenFlow13 \
+		"priority=100,in_port=4,dl_dst=00:00:00:00:03:02,actions=output:3"
+	sudo ovs-ofctl add-flow s3 -O OpenFlow13 \
+		"priority=1,actions=output:patch-to-iot,NORMAL"
+	sudo sysctl -w net.ipv4.ip_forward=1
+	@echo "[!] IoTGoat bridge connected."
+	@echo "[!] On IoTGoat run: ip route del default && ip route add default via 192.168.100.211"
+	@echo "[!] On Kali run   : sudo ip route add 10.0.0.0/8 via 192.168.100.211"
+	@echo "[!] Then verify   : mininet> h5 ping -c 3 192.168.100.2"
 
 iot-bridge-clean:
 	@echo "[!] Removing IoTGoat bridge"
