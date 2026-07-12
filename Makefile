@@ -165,15 +165,15 @@ demo-baseline:
 # Run this after approving an alert to prove the flow rule was installed.
 # Requires: Mininet topology to be running with s1 active.
 verify:
-	@echo "[Tool 4] Checking installed flow rules on s1..."
+	@echo "[Tool 4] Checking installed flow rules on s1"
 	@echo ""
 	sudo ovs-ofctl dump-flows s1 -O OpenFlow13 | grep -E \
 		"(feedfacecafe0004|deadbeefcafe0001|NXST_FLOW|cookie)" || \
 		echo "(no flows matched — is Mininet running?)"
 	@echo ""
 	@echo "Cookie reference:"
-	@echo "[*] Tool 4 defensive : 0xfeedfacecafe0004  priority=30000"
-	@echo "[*]  Tool 3 rogue : 0xdeadbeefcafe0001  priority=40000"
+	@echo "[*] Tool 4 defensive: 0xfeedfacecafe0004  priority=30000"
+	@echo "[*]  Tool 3 rogue: 0xdeadbeefcafe0001  priority=40000"
 
 # Cleanup
 # Remove all generated files.
