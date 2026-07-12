@@ -16,6 +16,8 @@
 # make demo-scan - run the port scan demo scenario interactively (Tool 4)
 # make demo-inject - run the FlowMod injection demo scenario (Tool 4)
 # make verify - show all Tool 4 flow rules installed on s1
+# make iot-bridge - connects mininet to IoTGoat and Kali
+# make iot-connect - connects the bridge and allows communication
 # make clean - remove generated models, results, and data
 
 PYTHON = python3
@@ -203,8 +205,20 @@ iot-bridge:
 	fi
 	sudo bash sdn_mininet/setup_iot_bridge.sh
 
+# Run this after 'make iot-bridge' to connect Mininet s1 to br-iot
+iot-connect:
+	sudo ip link add veth-s1 type veth peer name veth-iot 2>/dev/null || true
+	sudo ip link set veth-s1 up
+	sudo ip link set veth-iot up
+	sudo brctl addif br-iot veth-iot 2>/dev/null || true
+	sudo ovs-vsctl add-port s1 veth-s1 2>/dev/null || true
+	sudo iptables -t nat -A POSTROUTING -s 10.0.0.0/8 -o br-iot -j MASQUERADE
+	sudo iptables -A FORWARD -i s1 -o br-iot -j ACCEPT
+	sudo iptables -A FORWARD -i br-iot -o s1 -j ACCEPT
+	@echo "[!] s1 connected to br-iot -> Kali traffic now routes through Ryu"
+
 iot-bridge-clean:
-	@echo "Removing IoTGoat bridge..."
+	@echo "[!] Removing IoTGoat bridge"
 	-sudo ovs-vsctl destroy Mirror iot-mirror
 	-sudo ovs-vsctl del-port s3 patch-to-iot
 	-sudo ovs-vsctl del-br br-iot
