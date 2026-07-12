@@ -27,19 +27,19 @@ detection:
   # null: use the federated consensus threshold stored in the model bundle (bundle["global_threshold"]).
   # Falls back to the 5th-percentile of actual batch scores if that flags nothing.
   # float: use this value directly, e.g. -0.35 (env: ANOMALY_THRESHOLD)
-  anomaly_threshold: null
+  anomaly_threshold: -0.55   # <----------------------------Jul 12 readjust from null to -0.55-------------------
 
   # Minimum confidence percentage (0–100) for a flagged flow to become a dashboard alert.
   # Confidence is derived from anomaly rank within the scored batch: top-ranked flow = ~100%, bottom = ~0%.
   # Raise this to reduce alert noise; lower it to catch subtler attacks.
   # Corresponds to MIN_ALERT_CONFIDENCE in app.py (env: MIN_ALERT_CONFIDENCE)
   # Too many incoming alerts. So, I am raising confidence level from 50 to 90 (Jul 10) <-------------Jul 10 readjust----------------------
-  min_confidence: 90.0
+  min_confidence: 50.0
 
   # Maximum number of new alerts created per scan batch. Prevents the dashboard from being flooded 
   # during a large-scale attack where hundreds of flows are flagged simultaneously (env: MAX_ALERTS_PER_SCAN)
   # Too many incoming alerts. Lowering from 20 to 3 to reduce the number of incoming alerts <----------Jul 10 readjust---------------
-  max_alerts_per_scan: 3
+  max_alerts_per_scan: 5
 
   # Additional live CSV files to scan in round-robin during auto-scan.
   # Useful when the topology has multiple switches writing separate CSVs.
