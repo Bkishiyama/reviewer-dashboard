@@ -228,26 +228,28 @@ iot-connect:
 	sudo ovs-ofctl add-flow s3 -O OpenFlow13 \
 		"priority=200,icmp,actions=flood"
 	sudo ovs-ofctl add-flow s3 -O OpenFlow13 \
-		"priority=100,in_port=4,dl_dst=00:00:00:00:03:01,actions=output:2"
+		"priority=300,ip,in_port=4,nw_dst=10.0.0.5,actions=mod_dl_dst:00:00:00:00:03:01,output:s3-eth2"
 	sudo ovs-ofctl add-flow s3 -O OpenFlow13 \
-		"priority=100,in_port=4,dl_dst=00:00:00:00:03:02,actions=output:3"
+		"priority=300,ip,in_port=4,nw_dst=10.0.0.6,actions=mod_dl_dst:00:00:00:00:03:02,output:s3-eth3"
 	sudo ovs-ofctl add-flow s3 -O OpenFlow13 \
-		"priority=1,actions=output:patch-to-iot,NORMAL"
-	sudo sysctl -w net.ipv4.ip_forward=1
-    # Forward packets destined for Mininet (10.0.0.0/8) from br-iot to patch-to-s3
+		"priority=200,ip,dl_src=00:00:00:00:03:01,nw_dst=192.168.100.0/24,actions=output:patch-to-iot"
+	sudo ovs-ofctl add-flow s3 -O OpenFlow13 \
+		"priority=200,ip,dl_src=00:00:00:00:03:02,nw_dst=192.168.100.0/24,actions=output:patch-to-iot"
 	sudo ovs-ofctl add-flow br-iot -O OpenFlow13 \
 		"priority=200,ip,in_port=LOCAL,nw_dst=10.0.0.0/8,actions=output:patch-to-s3"
 	sudo ovs-ofctl add-flow br-iot -O OpenFlow13 \
 		"priority=200,ip,in_port=enp0s3,nw_dst=10.0.0.0/8,actions=output:patch-to-s3"
-	# Rewrite destination MAC when forwarding IoTGoat replies back to Mininet hosts
 	sudo ovs-ofctl add-flow s3 -O OpenFlow13 \
-		"priority=300,ip,in_port=4,nw_dst=10.0.0.5,actions=mod_dl_dst:00:00:00:00:03:01,output:s3-eth2"
+		"priority=1,actions=output:patch-to-iot,NORMAL"
 	sudo ovs-ofctl add-flow s3 -O OpenFlow13 \
-		"priority=300,ip,in_port=4,nw_dst=10.0.0.6,actions=mod_dl_dst:00:00:00:00:03:02,output:s3-eth3"
+		"priority=50,ip,nw_src=192.168.100.0/24,actions=CONTROLLER:65535,output:s3-eth2,output:s3-eth3"
+	sudo ovs-ofctl add-flow s3 -O OpenFlow13 \
+		"priority=50,ip,nw_dst=192.168.100.0/24,actions=CONTROLLER:65535,output:patch-to-iot"
+	sudo sysctl -w net.ipv4.ip_forward=1
 	@echo "[!] IoTGoat bridge connected."
 	@echo "[!] On IoTGoat run: ip route del default && ip route add default via 192.168.100.211"
-	@echo "[!] On Kali run   : sudo ip route add 10.0.0.0/8 via 192.168.100.211"
-	@echo "[!] Then verify   : mininet> h5 ping -c 3 192.168.100.2"
+	@echo "[!] On Kali run: sudo ip route add 10.0.0.0/8 via 192.168.100.211"
+	@echo "[!] Then verify: mininet> h5 ping -c 3 192.168.100.2"
 
 iot-bridge-clean:
 	@echo "[!] Removing IoTGoat bridge"
