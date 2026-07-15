@@ -145,8 +145,8 @@ Mininet mode because Mininet requires kernel namespaces.
 
 ### Setup
 1. Import the IoTGoat .vdi into VirtualBox; set its NIC to Internal Network "iotlab"
-2. Set Kali's NIC to a SEPARATE Internal Network, e.g. "iotlab-kali"
-3. Ubuntu needs a second NIC also on "iotlab-kali"
+2. Set Kali's NIC to an Internal Network, "iotlab"
+3. Ubuntu needs a NIC set on "iotlab"
 4. Configure static IPs: IoTGoat 192.168.100.2/24, Kali 192.168.200.3/24
 5. Run `make iot-bridge` after topology.py is already running
 
