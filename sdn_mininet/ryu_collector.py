@@ -309,6 +309,7 @@ class SDNSanitizerController(app_manager.RyuApp):
         )
         datapath.send_msg(mod)
 
+
     # Convert an OpenFlow flow stat entry into a CSV row dict.
     # Looks up the IP-layer cache populated by packet_in_handler so the row
     # contains real IPv4 addresses, protocol names, and port numbers rather
@@ -318,9 +319,40 @@ class SDNSanitizerController(app_manager.RyuApp):
         match = stat.match
         src_mac = match.get("eth_src", "")
         dst_mac = match.get("eth_dst", "")
-        # Skip table-miss entries (they have no src/dst)
+
+        # Some installed rules (e.g. the subnet-wide CONTROLLER rule on s3
+        # that catches IoTGoat/Kali/host traffic) match on IP fields only,
+        # with no eth_src/eth_dst in the match at all. The original code
+        # treated these the same as true table-miss entries and dropped
+        # them, which silently hid any traffic riding on that rule (e.g.
+        # hping3 floods from the host's own br-iot IP) from the CSV.
+        # Fall back to reading IP/port fields straight from the match
+        # before giving up.
         if not src_mac or not dst_mac:
-            return None
+            nw_src = match.get("ipv4_src") or match.get("nw_src")
+            nw_dst = match.get("ipv4_dst") or match.get("nw_dst")
+            if not nw_src and not nw_dst:
+                # true table-miss / no usable IP info either — skip
+                return None
+            ip_proto = match.get("ip_proto")
+            proto_map = {1: "icmp", 6: "tcp", 17: "udp"}
+            protocol = proto_map.get(ip_proto, str(ip_proto) if ip_proto else "ip")
+            duration = stat.duration_sec + stat.duration_nsec / 1e9
+            return {
+                "timestamp": ts,
+                "dpid": dpid,
+                "src_ip": nw_src or "",
+                "dst_ip": nw_dst or "",
+                "src_port": match.get("tcp_src", match.get("udp_src", 0)),
+                "dst_port": match.get("tcp_dst", match.get("udp_dst", 0)),
+                "protocol": protocol,
+                "bytes": stat.byte_count,
+                "packets": stat.packet_count,
+                "duration": round(duration, 6),
+                "flags": "",
+                "label": 0,
+            }
+
         duration = stat.duration_sec + stat.duration_nsec / 1e9
         # Look up IP-layer info cached from packet_in
         cache = self._flow_ip_cache.get((dpid, src_mac, dst_mac), {})
@@ -338,6 +370,7 @@ class SDNSanitizerController(app_manager.RyuApp):
             "flags": "",
             "label": 0,
         }
+   
 
     # Get or create a CSV writer for a specific client.
     # Appends to an existing file if it already exists.
