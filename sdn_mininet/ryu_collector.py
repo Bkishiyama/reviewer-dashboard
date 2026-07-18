@@ -214,16 +214,16 @@ class SDNSanitizerController(app_manager.RyuApp):
             }
 
 
-        # Accumulate software-tracked stats for this conversation.
-        # pkt_len approximates the OpenFlow-reported packet size. Jul 18 added
-        pkt_len = len(msg.data) if msg.data else 0
-        soft_key = (dpid, ip_pkt.src, ip_pkt.dst, src_port, dst_port, proto)
-        entry = self._soft_flow_stats.setdefault(soft_key, {
-            "packets": 0, "bytes": 0, "first_seen": time.time(),
-        })
-        entry["packets"] += 1
-        entry["bytes"] += pkt_len
-        entry["last_seen"] = time.time()
+            # Accumulate software-tracked stats for this conversation.
+            # pkt_len approximates the OpenFlow-reported packet size. Jul 18 added
+            pkt_len = len(msg.data) if msg.data else 0
+            soft_key = (dpid, ip_pkt.src, ip_pkt.dst, src_port, dst_port, proto)
+            entry = self._soft_flow_stats.setdefault(soft_key, {
+                "packets": 0, "bytes": 0, "first_seen": time.time(),
+            })
+            entry["packets"] += 1
+            entry["bytes"] += pkt_len
+            entry["last_seen"] = time.time()
 
         # Learn MAC -> IP opportunistically from packet-in payloads.
         # This allows flow CSVs and dashboard alerts to show IPv4 addresses
