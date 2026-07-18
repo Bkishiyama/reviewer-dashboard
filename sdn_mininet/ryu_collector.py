@@ -112,6 +112,13 @@ class SDNSanitizerController(app_manager.RyuApp):
         # Populated by packet_in_handler so _stat_to_row can write real IPs and ports
         # instead of MAC addresses and zeros.
         self._flow_ip_cache: Dict[tuple, dict] = {}
+        # Software flow-stats fallback: for OVS rules that lack per-host --Jul 18 added
+        # match granularity (e.g. subnet-wide CONTROLLER rules), OVS's own
+        # FlowStatsReply can't tell two hosts sharing that rule apart.
+        # Since those rules also copy every packet to the controller, we
+        # track per-conversation packet/byte counts ourselves here, keyed
+        # by (dpid, src_ip, dst_ip, src_port, dst_port, protocol).
+        self._soft_flow_stats: Dict[tuple, dict] = {}
         # MAC -> IP mapping built opportunistically from ARP and IPv4 packet-in payloads.
         # Used by _stat_to_row as a fallback when _flow_ip_cache has no entry.
         self.mac_to_ip: Dict[str, str] = {}
@@ -206,6 +213,18 @@ class SDNSanitizerController(app_manager.RyuApp):
                 "src_port": src_port,
             }
 
+
+        # Accumulate software-tracked stats for this conversation.
+        # pkt_len approximates the OpenFlow-reported packet size. Jul 18 added
+        pkt_len = len(msg.data) if msg.data else 0
+        soft_key = (dpid, ip_pkt.src, ip_pkt.dst, src_port, dst_port, proto)
+        entry = self._soft_flow_stats.setdefault(soft_key, {
+            "packets": 0, "bytes": 0, "first_seen": time.time(),
+        })
+        entry["packets"] += 1
+        entry["bytes"] += pkt_len
+        entry["last_seen"] = time.time()
+
         # Learn MAC -> IP opportunistically from packet-in payloads.
         # This allows flow CSVs and dashboard alerts to show IPv4 addresses
         # while preserving MAC fallback for non-IP traffic.
@@ -276,6 +295,52 @@ class SDNSanitizerController(app_manager.RyuApp):
                     self.logger.exception(
                         f"[Collector] Failed to request flow stats for dpid={datapath.id}"
                     )
+            self._flush_soft_flow_stats()
+
+    # Write accumulated per-conversation counters (from packet_in) to CSV. Jul 18 added
+    # This covers traffic matched by wildcard/subnet-wide rules where OVS's
+    # own FlowStatsReply can't distinguish individual hosts.
+    def _flush_soft_flow_stats(self):
+        if not self._soft_flow_stats:
+            return
+        ts = time.strftime("%Y-%m-%dT%H:%M:%S")
+        # Snapshot and reset immediately so packet_in_handler can keep
+        # accumulating into a fresh dict for the next interval even if
+        # writing this batch fails partway through.
+        batch = self._soft_flow_stats
+        self._soft_flow_stats = {}
+
+        flushed_clients = set()
+        try:
+            for (dpid, src_ip, dst_ip, src_port, dst_port, proto), entry in batch.items():
+                client = DPID_TO_CLIENT.get(dpid, f"live_client{dpid}")
+                writer = self._get_writer(client)
+                duration = entry["last_seen"] - entry["first_seen"]
+                row = {
+                    "timestamp": ts,
+                    "dpid": dpid,
+                    "src_ip": src_ip,
+                    "dst_ip": dst_ip,
+                    "src_port": src_port,
+                    "dst_port": dst_port,
+                    "protocol": proto,
+                    "bytes": entry["bytes"],
+                    "packets": entry["packets"],
+                    "duration": round(duration, 6),
+                    "flags": "",
+                    "label": 0,
+                }
+                writer.writerow(row)
+                self._row_counts[client] += 1
+                flushed_clients.add(client)
+        except Exception:
+            self.logger.exception("[Collector] Failed while flushing soft flow stats")
+        finally:
+            for client in flushed_clients:
+                self._files[client].flush()
+            self.logger.info(
+                f"[Collector] Flushed {len(batch)} soft-tracked flows"
+            )
    
     # Send a flow stats request to a switch
     def _request_flow_stats(self, datapath):
