@@ -331,6 +331,15 @@ class SDNSanitizerController(app_manager.RyuApp):
         if not src_mac or not dst_mac:
             nw_src = match.get("ipv4_src") or match.get("nw_src")
             nw_dst = match.get("ipv4_dst") or match.get("nw_dst")
+
+            # Masked/wildcard matches (e.g. 192.168.100.0/24) come back as
+            # (network, mask) tuples rather than plain strings. Take just
+            # the network address so the CSV holds a clean IP-like value.
+            if isinstance(nw_src, tuple):
+                nw_src = nw_src[0]
+            if isinstance(nw_dst, tuple):
+                nw_dst = nw_dst[0]
+
             if not nw_src and not nw_dst:
                 # true table-miss / no usable IP info either — skip
                 return None
