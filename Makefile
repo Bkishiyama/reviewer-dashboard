@@ -52,6 +52,27 @@ train-c3:
 aggregate:
 	$(CLI) federate --models "models/client*.pkl" --out models/global.pkl
 
+# lines 55 to 73 add to adjust for IoTGoat trainning Jul 19
+# Retrain on clean LIVE traffic instead of synthetic data (fixes false
+# positives like SSDP being flagged as anomalous — see live_client3.csv).
+train-live-c1:
+	$(CLI) train --data data/live_client1.csv --out models/live_client1.pkl --client-id live_client1
+
+train-live-c2:
+	$(CLI) train --data data/live_client2.csv --out models/live_client2.pkl --client-id live_client2
+
+train-live-c3:
+	$(CLI) train --data data/live_client3.csv --out models/live_client3.pkl --client-id live_client3
+
+train-live: train-live-c1 train-live-c2 train-live-c3
+
+# Delete stale live client models before federating — avoids the
+# "unknown client" KeyError from old runs with different client sets.
+aggregate-live:
+	rm -f models/live_client*.pkl.bak
+	$(CLI) federate --models "models/live_client*.pkl" --out models/live_global.pkl
+
+
 # Run anomaly detection on new flows
 detect:
 	$(CLI) detect \
@@ -250,6 +271,17 @@ iot-connect:
 	@echo "[!] On IoTGoat run: ip route del default && ip route add default via 192.168.100.211"
 	@echo "[!] On Kali run: sudo ip route add 10.0.0.0/8 via 192.168.100.211"
 	@echo "[!] Then verify: mininet> h5 ping -c 3 192.168.100.2"
+
+# Capture a clean (attack-free) live traffic baseline for retraining. July 19 fix-----------
+# Runs topology.py WITHOUT --attack or --inject so no malicious traffic
+# contaminates the baseline. Use --external if you want IoTGoat/Kali
+# SSDP/background traffic included (run 'make iot-bridge' and
+# 'make iot-connect' first in that case).
+# Watch data/live_client*.csv grow, then Ctrl+D out of the Mininet CLI
+# to stop the capture cleanly. Drop --external if you just want the plain Mininet benign traffic without IoTGoat in the mix.
+capture-clean:
+	@echo "[!] Capturing clean baseline traffic (no attacks) — exit Mininet CLI (Ctrl+D) to stop"
+	sudo $(PYTHON) sdn_mininet/topology.py --external --time 300
 
 iot-bridge-clean:
 	@echo "[!] Removing IoTGoat bridge"
