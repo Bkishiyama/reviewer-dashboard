@@ -216,6 +216,7 @@ clean-all: clean
         demo-hitl demo-scan demo-inject demo-fte demo-baseline \
         verify \
         iot-bridge iot-connect iot-bridge-clean \
+        capture-clean train-live train-live-c1 train-live-c2 train-live-c3 aggregate-live \
         clean clean-all
 
 iot-bridge:
