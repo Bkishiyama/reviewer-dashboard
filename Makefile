@@ -221,7 +221,7 @@ clean-all: clean
         demo-hitl demo-scan demo-inject demo-fte demo-baseline \
         verify \
         iot-bridge iot-connect iot-bridge-clean \
-        capture-clean train-live clean-live-models train-live-c1 train-live-c2 train-live-c3 aggregate-live \
+        capture-clean clean-live-data train-live clean-live-models train-live-c1 train-live-c2 train-live-c3 aggregate-live \
         clean clean-all
 
 iot-bridge:
@@ -278,6 +278,20 @@ iot-connect:
 	@echo "[!] On Kali run: sudo ip route add 10.0.0.0/8 via 192.168.100.211"
 	@echo "[!] Then verify: mininet> h5 ping -c 3 192.168.100.2"
 
+# live_client*.csv are opened in APPEND mode by ryu_collector.py and never
+# truncated, so old attack/demo traffic from previous runs stays in the file
+# forever unless deleted manually. Clear them before a clean capture so
+# train-live isn't trained on a mix of old attacks + new clean traffic.
+# IMPORTANT: ryu_collector.py caches an open file handle per client — if
+# ryu-manager is already running, deleting the CSV here does NOT make it
+# open a fresh one. You must restart ryu-manager after this runs, before
+# starting capture-clean, or flows will be written to a deleted file.
+clean-live-data:
+	@echo "[!] Removing stale live_client CSVs (old attack/demo traffic)"
+	rm -f data/live_client*.csv
+	@echo "[!] Now RESTART ryu-manager before running capture-clean:"
+	@echo "    ryu-manager sdn_mininet/ryu_collector.py ryu.app.simple_switch_13 ryu.app.ofctl_rest --observe-links"
+
 # Capture a clean (attack-free) live traffic baseline for retraining. July 19 fix-----------
 # Runs topology.py WITHOUT --attack or --inject so no malicious traffic
 # contaminates the baseline. topology.py no longer takes --external — IoTGoat/Kali
@@ -286,7 +300,10 @@ iot-connect:
 # traffic included; this target doesn't need to know about it either way).
 # Watch data/live_client*.csv grow, then Ctrl+D out of the Mininet CLI
 # to stop the capture cleanly.
-capture-clean:
+# Depends on clean-live-data so old attack/demo rows are never mixed into
+# the fresh baseline. Make sure ryu-manager has been restarted (see the
+# reminder printed by clean-live-data) before this actually starts capturing.
+capture-clean: clean-live-data
 	@echo "[!] Capturing clean baseline traffic (no attacks) — exit Mininet CLI (Ctrl+D) to stop"
 	sudo $(PYTHON) sdn_mininet/topology.py --time 300
 
