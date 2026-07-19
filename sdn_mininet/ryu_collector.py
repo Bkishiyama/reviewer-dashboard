@@ -57,6 +57,17 @@ POLL_INTERVAL = 5 # How often to poll switches for flow stats (in seconds)
 OUTPUT_DIR = "data" # Where to save the live CSV files
 MAX_ROWS = 5000 # Future: rotate files after this many rows
 
+# Cookies of control-plane rules installed by Tool 3 (rogue injection) and
+# Tool 4 (HITL mitigation). Flow stats entries carrying these cookies are
+# the rule's own aggregate counters (e.g. "N packets dropped"), not observed
+# traffic — they must be excluded from the CSV or a HITL block looks like an
+# ever-growing, still-active attack flow on every subsequent poll, even
+# though the switch is actually dropping 100% of the matched traffic.
+CONTROL_PLANE_COOKIES = {
+    0xDEADBEEFCAFE0001,  # Tool 3: injector.py rogue FlowMod
+    0xFEEDFACECAFE0004,  # Tool 4: mitigator.py HITL block/throttle rules
+}
+
 # Map switch DPID to client CSV name
 DPID_TO_CLIENT = {
     1: "live_client1",
@@ -381,6 +392,13 @@ class SDNSanitizerController(app_manager.RyuApp):
     # than MAC addresses and zeros. Falls back to mac_to_ip ARP table, then
     # raw MAC address for pure L2 traffic.
     def _stat_to_row(self, stat, dpid, ts) -> dict:
+        # Skip Tool 3/Tool 4 control-plane rules — their stat entries are
+        # the rule's own cumulative counters (packets dropped/injected),
+        # not observed traffic, and would otherwise show up as a single
+        # flow with an ever-growing byte/packet count on every poll.
+        if getattr(stat, "cookie", 0) in CONTROL_PLANE_COOKIES:
+            return None
+
         match = stat.match
         src_mac = match.get("eth_src", "")
         dst_mac = match.get("eth_dst", "")
