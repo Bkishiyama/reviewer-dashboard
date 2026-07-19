@@ -52,9 +52,19 @@ train-c3:
 aggregate:
 	$(CLI) federate --models "models/client*.pkl" --out models/global.pkl
 
-# lines 55 to 73 add to adjust for IoTGoat trainning Jul 19
+# lines 55 to 78 add to adjust for IoTGoat trainning Jul 19
 # Retrain on clean LIVE traffic instead of synthetic data (fixes false
 # positives like SSDP being flagged as anomalous — see live_client3.csv).
+train-live: clean-live-models train-live-c1 train-live-c2 train-live-c3
+
+# Remove stale live client models from a previous run before retraining,
+# so federate doesn't pick up leftover clients and throw "unknown" KeyError.
+# Runs BEFORE training (not before federate) so it never races with the
+# fresh .pkl files that train-live-c1/c2/c3 are about to produce.
+clean-live-models:
+	@echo "[!] Removing stale live client models before retrain"
+	rm -f models/live_client*.pkl
+
 train-live-c1:
 	$(CLI) train --data data/live_client1.csv --out models/live_client1.pkl --client-id live_client1
 
@@ -64,12 +74,7 @@ train-live-c2:
 train-live-c3:
 	$(CLI) train --data data/live_client3.csv --out models/live_client3.pkl --client-id live_client3
 
-train-live: train-live-c1 train-live-c2 train-live-c3
-
-# Delete stale live client models before federating — avoids the
-# "unknown client" KeyError from old runs with different client sets.
 aggregate-live:
-	rm -f models/live_client*.pkl.bak
 	$(CLI) federate --models "models/live_client*.pkl" --out models/live_global.pkl
 
 
@@ -216,7 +221,7 @@ clean-all: clean
         demo-hitl demo-scan demo-inject demo-fte demo-baseline \
         verify \
         iot-bridge iot-connect iot-bridge-clean \
-        capture-clean train-live train-live-c1 train-live-c2 train-live-c3 aggregate-live \
+        capture-clean train-live clean-live-models train-live-c1 train-live-c2 train-live-c3 aggregate-live \
         clean clean-all
 
 iot-bridge:
