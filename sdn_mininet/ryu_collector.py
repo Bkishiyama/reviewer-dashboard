@@ -430,6 +430,16 @@ class SDNSanitizerController(app_manager.RyuApp):
             proto_map = {1: "icmp", 6: "tcp", 17: "udp"}
             protocol = proto_map.get(ip_proto, str(ip_proto) if ip_proto else "ip")
             duration = stat.duration_sec + stat.duration_nsec / 1e9
+
+            # Zero bytes AND zero packets means this rule's counters never
+            # incremented — it's an idle/superseded flow entry OVS keeps
+            # reporting (duration reflects time-since-installed, not
+            # time-since-last-traffic), not an actual observed flow. Skip
+            # it, or a stale entry shows up every poll with an
+            # ever-growing duration and no real traffic behind it.
+            if stat.byte_count == 0 and stat.packet_count == 0:
+                return None
+
             return {
                 "timestamp": ts,
                 "dpid": dpid,
@@ -446,6 +456,13 @@ class SDNSanitizerController(app_manager.RyuApp):
             }
 
         duration = stat.duration_sec + stat.duration_nsec / 1e9
+
+        # Same stale-entry guard as the wildcard branch above — a rule
+        # with zero bytes and zero packets is idle bookkeeping, not an
+        # observed flow.
+        if stat.byte_count == 0 and stat.packet_count == 0:
+            return None
+
         # Look up IP-layer info cached from packet_in
         cache = self._flow_ip_cache.get((dpid, src_mac, dst_mac), {})
         return {
