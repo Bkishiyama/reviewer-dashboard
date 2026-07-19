@@ -869,4 +869,6 @@ permissive behavior.
 - IPerf traffic it being picked up as anomaly. I try to train it as normal but it is still having problems.
 - I added a conversion table MAC to IP mapping. I had trouble pinging and making static addresses. I will leave Mininet with dynamic IP addresses.
 - I continue to have library loading errors. This may confuse reviewers who see the errors althought Tool 4 works.
+- The DDoS attack happen quickly, I reduced the number of alerts but cannot stop all of them. I test with source port randomization.
+- FL does not pick up IoTGoat's UPnP. It does not get picked up as regular traffic and register's it as an anomaly.
   
