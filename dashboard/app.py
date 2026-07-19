@@ -119,6 +119,14 @@ def create_app(
     }
     scan_lock = threading.Lock()
 
+    # Rows already scored, per data file, as of the previous scan. detect()
+    # always scores the whole CSV (row scoring is independent per-row given
+    # a pre-fit scaler, so this is cheap and correct), but without this,
+    # every scan re-alerts on the SAME historical rows forever — a stopped
+    # attack keeps generating brand-new Alert objects because live_client*.csv
+    # is append-only and nothing tracks which rows were already queued.
+    _scanned_row_counts: dict[str, int] = {}
+
     
     """  Helper: run one detection scan
     Load the model, score the data file, convert anomalies to alerts,
@@ -139,8 +147,24 @@ def create_app(
             bundle = joblib.load(model_path)
             df = detect(model_path, data_path, verbose=verbose)
 
+            # Only alert on rows appended since the last scan. Slice first,
+            # then recompute anomaly_rank within just the new rows — the
+            # rank/batch_size values detect() assigned are relative to the
+            # WHOLE file, so passing them through unsliced would make
+            # confidence_pct nonsensical once the file has more history
+            # than one scan's worth of new rows.
+            with scan_lock:
+                already_scanned = _scanned_row_counts.get(data_path, 0)
+                _scanned_row_counts[data_path] = len(df)
+
+            new_rows_df = df.iloc[already_scanned:].copy()
+            if not new_rows_df.empty:
+                new_rows_df["anomaly_rank"] = (
+                    new_rows_df["anomaly_score"].rank(ascending=True).astype(int)
+                )
+
             new_alerts = alerts_from_detections(
-                df,
+                new_rows_df,
                 bundle,
                 min_confidence = MIN_ALERT_CONFIDENCE,
                 max_alerts = MAX_ALERTS_PER_SCAN,
@@ -156,8 +180,8 @@ def create_app(
 
             if new_alerts:
                 logger.info(
-                    "[Scan] Created %d new alert(s) from %d flows (pending queue: %d)",
-                    len(new_alerts), len(df), len(queue.pending()),
+                    "[Scan] Created %d new alert(s) from %d new flow(s) (pending queue: %d)",
+                    len(new_alerts), len(new_rows_df), len(queue.pending()),
                 )
             else:
                 logger.debug("[Scan] No new alerts this cycle.")
