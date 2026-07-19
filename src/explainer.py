@@ -78,6 +78,13 @@ SCAN_TARGET_PORTS: set[int] = {
     443, 445, 3306, 3389, 8080,
 }
 
+# Ports where a tiny, single/few-packet, near-instant exchange is NORMAL
+# protocol behavior (DNS query, DHCP lease, NTP sync) — not suspicious.
+# Excluding these keeps _match_port_scan and _match_flow_table_exhaustion
+# from firing on routine one-shot service traffic that is small and fast
+# by design, not because it's a scan or a flood.
+BENIGN_SINGLE_EXCHANGE_PORTS: set[int] = {53, 67, 68, 123}
+
 
 # Pattern detection helpers
 # Return the FeatureDeviation for a named feature, or None if absent
@@ -187,6 +194,9 @@ def _match_port_scan(
     if not (tiny_payload and (single_pkt or instant)):
         return False, "", ""
 
+    if dst_port in BENIGN_SINGLE_EXCHANGE_PORTS:
+        return False, "", ""
+
     proto_str = protocol.upper() if protocol else "TCP"
     port_str = _port_label(dst_port) if dst_port in SCAN_TARGET_PORTS else f"port {dst_port}"
 
@@ -214,6 +224,7 @@ patterns are distinctive)
 def _match_flow_table_exhaustion(
     all_devs: list[FeatureDeviation],
     protocol: str,
+    dst_port: int,
 ) -> tuple[bool, str, str]:
     bytes_val = _val(all_devs, "bytes")
     packets_val = _val(all_devs, "packets")
@@ -230,6 +241,9 @@ def _match_flow_table_exhaustion(
     one_pkt = packets_val <= 2
 
     if not (tiny and instant and one_pkt):
+        return False, "", ""
+
+    if dst_port in BENIGN_SINGLE_EXCHANGE_PORTS:
         return False, "", ""
 
     proto_str = protocol.upper() if protocol else "mixed protocol"
@@ -372,7 +386,7 @@ def build_explanation(
 
     if not matched:
         matched, pattern_name, pattern_detail = _match_flow_table_exhaustion(
-            devs_for_matching, proto
+            devs_for_matching, proto, dst_port
         )
 
     if not matched:
