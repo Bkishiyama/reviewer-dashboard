@@ -280,14 +280,15 @@ iot-connect:
 
 # Capture a clean (attack-free) live traffic baseline for retraining. July 19 fix-----------
 # Runs topology.py WITHOUT --attack or --inject so no malicious traffic
-# contaminates the baseline. Use --external if you want IoTGoat/Kali
-# SSDP/background traffic included (run 'make iot-bridge' and
-# 'make iot-connect' first in that case).
+# contaminates the baseline. topology.py no longer takes --external — IoTGoat/Kali
+# traffic comes in via br-iot patched straight into s3, set up separately with
+# 'make iot-bridge' and 'make iot-connect' (run those first if you want that
+# traffic included; this target doesn't need to know about it either way).
 # Watch data/live_client*.csv grow, then Ctrl+D out of the Mininet CLI
-# to stop the capture cleanly. Drop --external if you just want the plain Mininet benign traffic without IoTGoat in the mix.
+# to stop the capture cleanly.
 capture-clean:
 	@echo "[!] Capturing clean baseline traffic (no attacks) — exit Mininet CLI (Ctrl+D) to stop"
-	sudo $(PYTHON) sdn_mininet/topology.py --external --time 300
+	sudo $(PYTHON) sdn_mininet/topology.py --time 300
 
 iot-bridge-clean:
 	@echo "[!] Removing IoTGoat bridge"
