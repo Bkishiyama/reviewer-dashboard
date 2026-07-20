@@ -165,7 +165,7 @@ def create_app(
                 return 0
 
             bundle = joblib.load(model_path)
-            df = detect(model_path, data_path, verbose=verbose)
+            df = detect(model_path, data_path, verbose=verbose, allow_fallback=False)
 
             # Only alert on rows appended since the last scan. Slice first,
             # then recompute anomaly_rank within just the new rows — the
@@ -493,7 +493,7 @@ def create_app(
                 from src.detect import detect
 
                 bundle = joblib.load(model_path)
-                df = detect(model_path, override_data, verbose=False)
+                df = detect(model_path, override_data, verbose=False, allow_fallback=False)
                 new_alerts = alerts_from_detections(
                     df, bundle,
                     min_confidence = MIN_ALERT_CONFIDENCE,
