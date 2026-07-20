@@ -75,7 +75,7 @@ def detect(
     # actual scores. This handles cases where live traffic distributions
     # differ from training data, which causes an overly conservative threshold. 
     # Adjust threshold here since I had 0 results. This works so leave it <----------see ln 144
-    if (scores < threshold).sum() == 0:
+    if allow_fallback and (scores < threshold).sum() == 0:   # <-- add "allow_fallback and"
         threshold = float(np.percentile(scores, 5))
         if verbose:
             print(f"[Detect] Threshold too conservative, falling back to p5: {threshold:.4f}")
