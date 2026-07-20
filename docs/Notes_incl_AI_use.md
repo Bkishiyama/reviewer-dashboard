@@ -44,3 +44,9 @@ I use FlexClip to generate .jpg pictures. I have a license to create AI images t
 
 PyCharm used to help with code completion.
 I used Visual Studio Code to develop my dashboard. I used GitHub Codespaces connected to Visual Studio Code to help make my Dashboard. Codespaces allow running my repository in the Cloud along with VS Code and Ubuntu 22.04 (container). Debugger and VS Code extensions are attached. Please see my video setup for VS Code. As an instructor for NVC, I get Codespaces Pro for free. This is offered to students as well. Included is Copilot agents, part of Copilot AI, that can modify code and propose changes. I accepted changes to my Dashboard. I did not accept proposed changes to my overall project. I had agents check the health of my project, i.e., "Check my project and look for any errors." I also did not accept some of the error that Copilot found. In order to fix it, I would have to rewrite some of my programs.  
+
+Additional Tool 4 prompts:
+Copilot: How do I make a MAC address to IP address table so that I can train on IP addresses? Ryu provides the MAC address tables in its controller.
+Copilot: How do I reduce the number of Anomaly traffic that flows through my Dashboard? Can I reduce repetition?
+Copilot: What is the best way to connect my IoTGoat VM to Mininet such that the Ryu Controller can see the traffic?
+Copilot: I am getting anomalous traffic from IoTGoat. It is not anomalous. It is not being picked up by Federated Learning. Is there a way to include it so it is not anomalous?
