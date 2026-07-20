@@ -121,11 +121,31 @@ def create_app(
 
     # Rows already scored, per data file, as of the previous scan. detect()
     # always scores the whole CSV (row scoring is independent per-row given
-    # a pre-fit scaler, so this is cheap and correct), but without this,
-    # every scan re-alerts on the SAME historical rows forever — a stopped
-    # attack keeps generating brand-new Alert objects because live_client*.csv
+    # a pre-fit scaler, so this is correct). Without this,
+    # every scan re-alerts on the same historical rows continuously. A stopped
+    # attack continues to generate brand-new Alert objects because live_client*.csv
     # is append-only and nothing tracks which rows were already queued.
+    # So, seed with the file's Current row count at startup rather than left
+    # at 0; otherwise, restarting the dashboard (e.g. to flush the alert
+    # queue for a clean demo) resets this to empty, and the very next scan
+    # treats the Entire existing file as brand new, re-alerting on the
+    # whole session's history at once. "Start clean" should mean "only
+    # alert on what happens from now on," not "replay everything so far."
     _scanned_row_counts: dict[str, int] = {}
+    if os.path.exists(data_path):
+        try:
+            import pandas as pd
+            _scanned_row_counts[data_path] = len(pd.read_csv(data_path, low_memory=False))
+            logger.info(
+                "[Startup] %s already has %d row(s) — skipping to end, "
+                "only new rows will generate alerts.",
+                data_path, _scanned_row_counts[data_path],
+            )
+        except Exception as exc:
+            logger.warning(
+                "[Startup] Could not pre-count %s (%s) — will scan from the start.",
+                data_path, exc,
+            )
 
     
     """  Helper: run one detection scan
