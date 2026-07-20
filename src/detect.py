@@ -38,6 +38,7 @@ def detect(
     threshold: float | None = None,
     top_n: int | None = None,
     verbose: bool = True,
+    allow_fallback: bool = True,
 ) -> pd.DataFrame:
     if verbose:
         print(f"[Detect] Loading model from : {model_path}")
