@@ -1,15 +1,21 @@
 # Research Notes
 
 ## Helpful Notes
-### Run system on Docker
 
-I recommend running on Docker since the steps are easier and you can run on Windows, MacOS, or Linux:
-[Docker Copy and Paste](https://1drv.ms/w/c/0b9ef4570f82165e/IQD-QWe9zvwpRKE1oNgw0TT4ATfUrsw-xcZuEtRkoxQL8yA?e=jBDDw0)
+### Run on DigitalOcean
 
-### Run on Ubuntu 20.04
+Due to errors and downloading problems, I recommend running this on DigitalOcean. I resolved the issues as I encountered them.
+I did not document the resolution but placed dependencies in ./install-22.04.sh. In DigitalOcean, all issues should be resolved.
+This includes, mininet, Ryu, and Ubuntu 22.04 updates. For DigitalOcean, I will provide the ssh login information.
+It is built on Ubuntu 22.04. Tools 1 and 2 were built on Ubuntu 20.04. Tool 3 was build on both Ubuntu 20.04 and 22.04.
+Tool 4 is primarily built on Ubuntu 22.04. I did not work on it in Ubuntu 20.04. I am not testing Tools 1, 2 and 3. 
 
-If you want to see more action, and have Ubuntu 20.04, run it:
-[Run system on Ubuntu 20.04](https://1drv.ms/w/c/0b9ef4570f82165e/IQAmXO4cxcotSavnhSNEXlNkAXPqC-59fMAETPiFewCAOAU?e=gws1CK) 
+### Run on Ubuntu 22.04
+
+This program may be tested using Ubuntu 22.04. However, you may see errors. I resolved the issues.
+However, if you get a standalone dependency issue, it is best to resolve it. 
+For example, if you are missing a specific library, you should download it. You may contact me to let me know to include it, 
+since some of my libraries may have been installed in different labs or projects.
 
 ### Other Notes
 [Feature Engineering Notes](https://1drv.ms/w/c/0b9ef4570f82165e/IQChg9014r_vQ4ej1sI0ZXl5AaSocSKd_ogjEY5yLk53cWg?e=CUnYon)
