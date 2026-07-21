@@ -584,8 +584,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sp.add_argument(
         "--data",
-        default="data/new_flows.csv",
-        help="Flow CSV to scan [default: data/new_flows.csv]",
+        nargs="+",
+        default=["data/new_flows.csv"],
+        help="Flow CSV(s) to scan, space-separated for multiple switches "
+             "[default: data/new_flows.csv]",
     )
     sp.add_argument(
         "--port",
