@@ -131,21 +131,27 @@ def create_app(
     # treats the Entire existing file as brand new, re-alerting on the
     # whole session's history at once. "Start clean" should mean "only
     # alert on what happens from now on," not "replay everything so far."
+    # Tool 4 multi-switch fix: accept either a single path (str) or a list
+    # of paths so the dashboard can watch every live_client*.csv at once,
+    # catching attacks that land on any switch instead of just one.
+    data_paths = [data_path] if isinstance(data_path, str) else list(data_path)
+
     _scanned_row_counts: dict[str, int] = {}
-    if os.path.exists(data_path):
-        try:
-            import pandas as pd
-            _scanned_row_counts[data_path] = len(pd.read_csv(data_path, low_memory=False))
-            logger.info(
-                "[Startup] %s already has %d row(s) — skipping to end, "
-                "only new rows will generate alerts.",
-                data_path, _scanned_row_counts[data_path],
-            )
-        except Exception as exc:
-            logger.warning(
-                "[Startup] Could not pre-count %s (%s) — will scan from the start.",
-                data_path, exc,
-            )
+    for dp in data_paths:
+        if os.path.exists(dp):
+            try:
+                import pandas as pd
+                _scanned_row_counts[dp] = len(pd.read_csv(dp, low_memory=False))
+                logger.info(
+                    "[Startup] %s already has %d row(s) — skipping to end, "
+                    "only new rows will generate alerts.",
+                    dp, _scanned_row_counts[dp],
+                )
+            except Exception as exc:
+                logger.warning(
+                    "[Startup] Could not pre-count %s (%s) — will scan from the start.",
+                    dp, exc,
+                )
 
     
     """  Helper: run one detection scan
@@ -160,53 +166,64 @@ def create_app(
             if not os.path.exists(model_path):
                 logger.warning("[Scan] Model not found: %s", model_path)
                 return 0
-            if not os.path.exists(data_path):
-                logger.warning("[Scan] Data file not found: %s", data_path)
-                return 0
 
             bundle = joblib.load(model_path)
-            df = detect(model_path, data_path, verbose=verbose, allow_fallback=False)
+            total_new_alerts = 0
+            total_new_rows = 0
 
-            # Only alert on rows appended since the last scan. Slice first,
-            # then recompute anomaly_rank within just the new rows — the
-            # rank/batch_size values detect() assigned are relative to the
-            # WHOLE file, so passing them through unsliced would make
-            # confidence_pct nonsensical once the file has more history
-            # than one scan's worth of new rows.
-            with scan_lock:
-                already_scanned = _scanned_row_counts.get(data_path, 0)
-                _scanned_row_counts[data_path] = len(df)
+            # Tool 4 multi-switch fix: scan every file in data_paths so
+            # attacks landing on any switch (live_client1/2/3.csv) are
+            # detected, not just the one file the dashboard was pointed at.
+            for dp in data_paths:
+                if not os.path.exists(dp):
+                    logger.warning("[Scan] Data file not found: %s", dp)
+                    continue
 
-            new_rows_df = df.iloc[already_scanned:].copy()
-            if not new_rows_df.empty:
-                new_rows_df["anomaly_rank"] = (
-                    new_rows_df["anomaly_score"].rank(ascending=True).astype(int)
+                df = detect(model_path, dp, verbose=verbose, allow_fallback=False)
+
+                # Only alert on rows appended since the last scan. Slice first,
+                # then recompute anomaly_rank within just the new rows — the
+                # rank/batch_size values detect() assigned are relative to the
+                # WHOLE file, so passing them through unsliced would make
+                # confidence_pct nonsensical once the file has more history
+                # than one scan's worth of new rows.
+                with scan_lock:
+                    already_scanned = _scanned_row_counts.get(dp, 0)
+                    _scanned_row_counts[dp] = len(df)
+
+                new_rows_df = df.iloc[already_scanned:].copy()
+                if not new_rows_df.empty:
+                    new_rows_df["anomaly_rank"] = (
+                        new_rows_df["anomaly_score"].rank(ascending=True).astype(int)
+                    )
+
+                new_alerts = alerts_from_detections(
+                    new_rows_df,
+                    bundle,
+                    min_confidence = MIN_ALERT_CONFIDENCE,
+                    max_alerts = MAX_ALERTS_PER_SCAN,
                 )
 
-            new_alerts = alerts_from_detections(
-                new_rows_df,
-                bundle,
-                min_confidence = MIN_ALERT_CONFIDENCE,
-                max_alerts = MAX_ALERTS_PER_SCAN,
-            )
+                for alert in new_alerts:
+                    queue.push(alert)
 
-            for alert in new_alerts:
-                queue.push(alert)
+                total_new_alerts += len(new_alerts)
+                total_new_rows += len(new_rows_df)
 
             with scan_lock:
                 scan_meta["last_scan_at"] = time.time()
-                scan_meta["last_scan_count"] = len(new_alerts)
+                scan_meta["last_scan_count"] = total_new_alerts
                 scan_meta["total_scans"] += 1
 
-            if new_alerts:
+            if total_new_alerts:
                 logger.info(
-                    "[Scan] Created %d new alert(s) from %d new flow(s) (pending queue: %d)",
-                    len(new_alerts), len(new_rows_df), len(queue.pending()),
+                    "[Scan] Created %d new alert(s) from %d new flow(s) across %d file(s) (pending queue: %d)",
+                    total_new_alerts, total_new_rows, len(data_paths), len(queue.pending()),
                 )
             else:
                 logger.debug("[Scan] No new alerts this cycle.")
 
-            return len(new_alerts)
+            return total_new_alerts
 
         except Exception as exc:
             logger.error("[Scan] Error during detection scan: %s", exc, exc_info=True)
@@ -220,7 +237,7 @@ def create_app(
     def _scanner_loop():
         logger.info(
             "[AutoScan] Started, scanning every %ds. Model: %s | Data: %s",
-            AUTO_SCAN_INTERVAL, model_path, data_path,
+            AUTO_SCAN_INTERVAL, model_path, data_paths,
         )
         # Initial scan on startup
         run_scan(verbose=True)
@@ -576,8 +593,10 @@ def main():
     )
     parser.add_argument(
         "--data",
-        default = os.environ.get("DATA_PATH", "data/new_flows.csv"),
-        help = "Path to flow CSV to scan [default: data/new_flows.csv]",
+        nargs = "+",
+        default = [os.environ.get("DATA_PATH", "data/new_flows.csv")],
+        help = "Path(s) to flow CSV(s) to scan, space-separated for multiple switches "
+               "[default: data/new_flows.csv]",
     )
     parser.add_argument(
         "--port",
