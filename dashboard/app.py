@@ -178,7 +178,7 @@ def create_app(
                 if not os.path.exists(dp):
                     logger.warning("[Scan] Data file not found: %s", dp)
                     continue
-
+                # To reduce diversity of traffic, I made allow_fallback=False when running IoTGoat/KALI----------------Jul20
                 df = detect(model_path, dp, verbose=verbose, allow_fallback=True)
 
                 # Only alert on rows appended since the last scan. Slice first,
