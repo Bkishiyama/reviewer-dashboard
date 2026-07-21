@@ -179,7 +179,7 @@ def create_app(
                     logger.warning("[Scan] Data file not found: %s", dp)
                     continue
 
-                df = detect(model_path, dp, verbose=verbose, allow_fallback=False)
+                df = detect(model_path, dp, verbose=verbose, allow_fallback=True)
 
                 # Only alert on rows appended since the last scan. Slice first,
                 # then recompute anomaly_rank within just the new rows — the
