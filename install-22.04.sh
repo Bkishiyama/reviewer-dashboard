@@ -30,6 +30,7 @@ sudo apt-get install -y \
     openvswitch-switch \
     hping3 \
     nmap \
+    net-tools \
     iperf3 \
     curl \
     git \
