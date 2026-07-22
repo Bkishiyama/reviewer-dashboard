@@ -58,6 +58,16 @@ Current methods do not seem to do a good job of showing how sure they are about 
 
 Tool 4 is created to provide more of a human touch. It places a human operator in the middle of the detection and enforcement process. Instead of automatically responding to every anomaly, the system takes the raw model outputs and translates them into easy-to-understand explanations. These explanations identify the likely attack pattern, describe which network features have deviated from the norm, and provide a recommendation with three options. The operator then reviews this explanation, makes a decision, and only after that does the system put an OpenFlow DROP rule in place on the target switch. Every decision made is logged, including a timestamp, the operator's identity, the method used, and the cookie of the installed rule. Tool 4 addresses the gap between what anomaly detection systems produce and what human operators need to feel confident in their actions. By doing so, Tool 4 ensures that human operators are in the loop, making informed decisions based on clear and concise information. This approach improves the overall effectiveness of the system and also provides transparency. With Tool 4, operators can trust that they have the information they need to make the right decisions.
 
+### Existing Approaches
+
+#### Federated Learning Security Systems
+
+FL approaches to SDN security, including the system demonstrated in Tools 1 and 2 of this project, distribute model training across multiple network clients to preserve privacy while building a global anomaly detector. These systems address the data sharing problem in multi-organizational SDN environments but inherit the interpretability limitations of the underlying machine learning models. The federated global model produces anomaly scores that are no more interpretable than those of a centrally trained model, and the federated architecture provides no mechanism for operator review before enforcement.
+
+### Explainable AI Security Tools
+
+Some research systems use special techniques to make AI more understandable as related to security alerts. These techniques, like LIME and SHAP, show which input features have the biggest impact on a particular anomaly score. But the problem is, they produce results that are hard to understand unless you are versed in data science. They provide values such as feature weights and Shapley values. However, these are not understandable. Because of this, these techniques are not widely used in real-world security systems, especially when it comes to SDN security. What seems to be absent is a system that allows humans to work alonside AI - to make decisions and take actions based on the alerts it generates. This includes integrating with SDN and keeping a record of everything that happens. Think of it like this: when the AI flags something as suspicious, it would be great if it could explain why it made that decision, and then give the human operator options for what to do next. This would make it easier for people to trust the AI and work with it to keep the network secure. But now, that is not happening. The techniques we have are like black boxes, i.e., they make predictions, but they don't tell us how they got there, or what we should do.
+
 ---
 
 ## Project Overview
