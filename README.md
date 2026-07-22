@@ -30,19 +30,20 @@ Watch my videos:
 
 ## Table of contents
 
-1. [Project Overview](#project-overview)
-2. [Repository Structure](#repository-structure)
-3. [Network Topology](#network-topology)
-4. [Installation](#installation)
-5. [Tool 1: Federated Anomaly Detection](#tool-1--federated-anomaly-detection)
-6. [Tool 2: Byzantine-robust Poisoning Defense](#tool-2--byzantine-robust-poisoning-defense)
-7. [Tool 3: OpenFlow FlowMod Injection](#tool-3--openflow-flowmod-injection)
-8. [Tool 4: Human-in-the-Loop Security Dashboard](#tool-4--human-in-the-loop-security-dashboard)
-9. [Full pipeline reference](#full-pipeline-reference)
-10. [Makefile targets](#makefile-targets)
-11. [Configuration](#configuration)
-12. [Running tests](#running-tests)
-13. [Limitations and known issues](#limitations-and-known-issues)
+1. [Problem Statement](#problem-statement)
+2. [Project Overview](#project-overview)
+3. [Repository Structure](#repository-structure)
+4. [Network Topology](#network-topology)
+5. [Installation](#installation)
+6. [Tool 1: Federated Anomaly Detection](#tool-1--federated-anomaly-detection)
+7. [Tool 2: Byzantine-robust Poisoning Defense](#tool-2--byzantine-robust-poisoning-defense)
+8. [Tool 3: OpenFlow FlowMod Injection](#tool-3--openflow-flowmod-injection)
+9. [Tool 4: Human-in-the-Loop Security Dashboard](#tool-4--human-in-the-loop-security-dashboard)
+10. [Full pipeline reference](#full-pipeline-reference)
+11. [Makefile targets](#makefile-targets)
+12. [Configuration](#configuration)
+13. [Running tests](#running-tests)
+14. [Limitations and known issues](#limitations-and-known-issues)
 
 ---
 
