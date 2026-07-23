@@ -229,7 +229,8 @@ curl -s http://localhost:5000/api/health
 
 #### Step 5. Open the Dashboard in your browser
 
-```http
+Open Chrome, Edge, or your choice of browser and enter the Url:
+```url
 http://165.227.28.254:5000
 ```
 
@@ -239,7 +240,7 @@ In these commands, I insert them to clear any block rules a user may entered and
 
 #### Step 1. Clear old data flows and the queue
 
-- clear any old block rules:
+- In Terminal 3, clear any old block rules:
 
 ```bash
 sudo ovs-ofctl del-flows s1 "cookie=0xfeedfacecafe0004/-1" -O OpenFlow13
@@ -274,7 +275,7 @@ sleep 35
 curl -s http://localhost:5000/api/health
 ```
 
-Clicking the `scan` button will prompt a scan.
+Clicking the `scan` button in the Dashboard will prompt a scan.
 
 #### Block the attack
 
@@ -282,11 +283,16 @@ In the dashboard, look for the alert with src ip of 10.0.0.1, dst_port 80, dpid 
 
 #### Prove the Block worked
 
-- Use the `Verify Rules` button to see the inserted rule.
+- Use the `Verify Rules` button in the Dashboard to see the inserted rule.
 - Optionally, use Terminal 3 to see the inserted rule:
 
 ```bash
 sudo ovs-ofctl dump-flows s1 -O OpenFlow13 | grep -i feedface
+```
+
+To see any new alerts and clear out the old queue, I find this helpful:
+```bash
+curl -s -X POST http://localhost:5000/api/alerts/clear
 ```
 
 - Test if h1 can send http traffic to h2 in Terminal 2 at the mininet prompt:
