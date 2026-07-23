@@ -177,6 +177,160 @@ draw.io assisted
 
 ---
 
+## DigitalOcean Droplet
+
+I trained the Federated Learning model for 10 minutes. This seemed to be ample for my project. 
+There will be  anomalies that may appear without an attack. My program is designed to find the top 5% of anomalies so they may pop up. 
+In addition, 10 minutes is not guaranteed to produce all types of Iperf traffic that normally flows through my network. 
+
+In this droplet, I use Ubuntu 22.04. All dependencies are already installed and should not produce any errors. The following are the commands for the demonstration.
+I follow these commands with the shutdown or clean up cycle. I start my demonstration with some clearing out the queue and CSV files that are used for training and detection.
+I do this if a person who shares the droplet, does not properly clean up the application. If not properly shutdown, the app will behave unpredictably and may produce errors.
+
+### Prepare the environment
+
+Open up three terminals. In my video, I open up three Powershells version 7.6.4. If using Ubuntu, open up 3 CLIs. ssh into all three using the same username and IP address. 
+I will provide this in the discussion. 
+
+#### Step 1. Start up 3 terminals
+
+In all three terminals, use the same username and IP address to ssh into DigitalOcean.
+
+```bash
+ssh reviewer@165.227.25.254
+```
+
+Click `yes` for the fingerprint.
+
+#### Step 2. Start Ryu Controller (Terminal 1)
+
+```bash
+cd ~/reviewer-dashboard
+sudo mn -c
+ryu-manager sdn_mininet/ryu_collector.py ryu.app.ofctl_rest --observe-links
+```
+
+#### Step 3. Start Mininet (Terminal 2)
+
+```bash
+cd ~/reviewer-dashboard
+sudo python3 sdn_mininet/topology.py
+```
+
+#### Step 4. Start the Dashboard (Terminal 3)
+
+```bash
+cd ~/reviewer-dashboard
+sudo systemctl restart hitl-dashboard
+sleep 3
+curl -s http://localhost:5000/api/health
+```
+
+#### Step 5. Open the Dashboard in your browser
+
+```http
+http://165.227.28.254:5000
+```
+
+### Run the App
+
+In these commands, I insert them to clear any block rules a user may entered and not cleard.
+
+#### Step 1. Clear old data flows and the queue
+
+- clear any old block rules:
+
+```bash
+sudo ovs-ofctl del-flows s1 "cookie=0xfeedfacecafe0004/-1" -O OpenFlow13
+```
+
+- clear the forwarding rules between h1 <-> h2
+
+```bash
+sudo ovs-ofctl del-flows s1 "dl_src=00:00:00:00:01:01,dl_dst=00:00:00:00:01:02" -O OpenFlow13
+sudo ovs-ofctl del-flows s1 "dl_src=00:00:00:00:01:02,dl_dst=00:00:00:00:01:01" -O OpenFlow13
+```
+
+- clear out the alert queue so the new attack shows
+
+```bash
+curl -s -X POST http://localhost:5000/api/alerts/clear
+```
+
+#### Launch the Attack (Terminal 2 - mininet prompt)
+
+```bash
+h1 hping3 -S --flood -p 80 h2
+```
+
+- To stop the attack:
+`Ctrl + C` in Terminal 2, at the mininet prompt
+
+#### Wait for scan and check dashboard
+
+```bash
+sleep 35
+curl -s http://localhost:5000/api/health
+```
+
+Clicking the `scan` button will prompt a scan.
+
+#### Block the attack
+
+In the dashboard, look for the alert with src ip of 10.0.0.1, dst_port 80, dpid 1. Click `Approve` to block the attack.
+
+#### Prove the Block worked
+
+- Use the `Verify Rules` button to see the inserted rule.
+- Optionally, use Terminal 3 to see the inserted rule:
+
+```bash
+sudo ovs-ofctl dump-flows s1 -O OpenFlow13 | grep -i feedface
+```
+
+- Test if h1 can send http traffic to h2 in Terminal 2 at the mininet prompt:
+
+```bash
+h1 curl --max-time 3 http://10.0.0.2/
+```
+
+#### Unblock the traffic
+
+- There should be a 5 minute timer that resets the path and unblocks it. 
+- To unblock it between runs or resume the flow
+
+```bash
+sudo ovs-ofctl del-flows s1 "cookie=0xfeedfacecafe0004/-1" -O OpenFlow13
+```
+
+### Shut down 
+
+Terminal 2, mininet prompt
+
+```bash
+exit
+```
+
+Terminal 2:
+
+```bash
+sudo mn -c
+```
+
+- clear the alert queue:
+
+```bash
+curl -s -X POST http://localhost:5000/api/alerts/clear
+```
+
+- Stop the dashboard (optional - okay to leave on)
+
+```bash
+sudo systemctl stop hitl-dashboard
+```
+
+---
+
 ## Installation
 
 ### Prerequisites
