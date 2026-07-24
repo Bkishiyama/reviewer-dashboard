@@ -338,6 +338,66 @@ sudo systemctl stop hitl-dashboard
 
 ---
 
+## Training Federated Learning Model
+
+### Method 1
+
+DO NOT DO THIS. I already trained the model for DigitalOcean so this does not need to be done. If I had too many anamolies, I was planning on training for 1200 seconds.
+
+#### Step 1. Start the model
+
+- Ensure the model topology is clear by stopping Ryu & truncate CSVs:
+
+```bash
+for f in data/live_client*.csv; do head -n 1 "$f" > /tmp/hdr && cat /tmp/hdr > "$f"; done
+```
+
+- Clear the topology
+
+```bash
+sudo mn -c
+```
+
+- Restart Ryu and topology
+  - Start Ryu
+```bash
+ ryu-manager sdn_mininet/ryu_collector.py ryu.app.ofctl_rest --observe-links
+```
+  - Start and run topology for 10 minutes
+```bash
+sudo python3 sdn_mininet/topology.py --time 600
+```
+ 
+  - After 10 minutes, check the number of lines as there should be over several hundred
+```bash
+sleep 600
+wc -l data/live_client1.csv data/live_client2.csv data/live_client3.csv
+```
+
+#### Step 2. Train the model
+
+If you have several hundred lines, train the model.
+
+```bash
+rm -f models/client1.pkl models/client2.pkl models/client3.pkl
+python3 cli.py train --data data/live_client1.csv --client-id client1 --out models/client1.pkl
+python3 cli.py train --data data/live_client2.csv --client-id client2 --out models/client2.pkl
+python3 cli.py train --data data/live_client3.csv --client-id client3 --out models/client3.pkl
+python3 cli.py federate --models "models/client*.pkl" --out models/global.pkl
+```
+
+This is persistent and will be saved. The data that is generated has no attacks and the --attack flag was not used.
+The data generated from topology.py that represents my healthy network is 
+1. iperf3
+2. pings
+3. HTTP
+
+The attacks can be tested on Terminal 2, mininet prompt. Make sure the dashboard gets restarted:
+```bash
+sudo systemctl restart hitl-dashboard
+```
+___
+
 ## Installation
 
 ### Prerequisites
