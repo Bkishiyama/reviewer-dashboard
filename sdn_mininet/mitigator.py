@@ -72,6 +72,23 @@ DPID_TO_OVS_PORT = {
 }
 DEFAULT_OVS_PORT = DPID_TO_OVS_PORT[1]  # fallback for unknown dpid
 
+# Host IP -> the switch that host is physically attached to (its ingress switch).
+# A DROP rule only stops traffic on a switch the traffic actually traverses, and
+# the surest place to stop a flood is the attacker's own ingress switch. The dpid
+# carried on an Alert is merely the switch whose CSV happened to record the flow,
+# which for multi-hop paths can be a downstream switch the source never enters --
+# installing there yields a rule with n_packets=0 that blocks nothing. Must match
+# the host-to-switch wiring in sdn_mininet/topology.py.
+IP_TO_DPID = {
+    "10.0.0.1": 1,  # h1  -> s1
+    "10.0.0.2": 1,  # h2  -> s1
+    "10.0.0.7": 1,  # h7  -> s1
+    "10.0.0.3": 2,  # h3  -> s2
+    "10.0.0.4": 2,  # h4  -> s2
+    "10.0.0.5": 3,  # h5  -> s3
+    "10.0.0.6": 3,  # h6  -> s3
+}
+
 # Flow rule parameters for HITL mitigations
 HITL_COOKIE = 0xFEEDFACECAFE0004  # identifies Tool 4 rules in ovs-ofctl output
 HITL_PRIORITY = 30000  # below injector.py (40000) but above normal (1)
@@ -315,7 +332,10 @@ class Mitigator:
         alert,
         action: MitigationAction = MitigationAction.BLOCK,
     ) -> MitigationResult:
-        dpid = alert.dpid if alert.dpid else 1   # default to s1 if unknown
+        # Prefer the source host's own ingress switch over the dpid recorded on
+        # the alert -- see IP_TO_DPID above for why the alert's dpid can point at
+        # a switch the attacker's traffic never crosses.
+        dpid = IP_TO_DPID.get(alert.src_ip) or (alert.dpid if alert.dpid else 1)
 
         if action == MitigationAction.BLOCK:
             return self.block(
@@ -776,7 +796,7 @@ def verify_rule_installed(dpid: int = 1) -> str:
     cookie_hex = hex(HITL_COOKIE)
     try:
         result = subprocess.run(
-            ["ovs-ofctl", "dump-flows", switch, "-O", "OpenFlow13"],
+            ["sudo", "-n", "ovs-ofctl", "dump-flows", switch, "-O", "OpenFlow13"],
             capture_output = True,
             text = True,
             timeout = 5,
@@ -786,7 +806,12 @@ def verify_rule_installed(dpid: int = 1) -> str:
             if cookie_hex in line.lower() or "hitl" in line.lower()
         ]
         if not lines:
-            return f"No Tool 4 (HITL) rules found on {switch}. Cookie: {cookie_hex}"
+            return (
+                f"No active Tool 4 (HITL) block rules on {switch} — nothing is "
+                f"currently being dropped by an operator-approved mitigation. "
+                f"(Other switch flows are unaffected; this check only looks for "
+                f"cookie {cookie_hex}.)"
+            )
         return "\n".join(lines)
     except FileNotFoundError:
         return "ovs-ofctl not found — run this inside the Mininet VM."
