@@ -307,15 +307,15 @@ sleep 35
 curl -s http://localhost:5000/api/health
 ```
 
-Clicking the `scan` button in the Dashboard will prompt a scan.
+> Clicking the `Scan now` button in the Dashboard will prompt a scan.
 
 #### Block the attack
 
-In the dashboard, look for the alert with src ip of 10.0.0.1, dst_port 80, dpid 1. Click `Approve` to block the attack.
+> In the dashboard, look for the alert with **src ip of 10.0.0.1, dst_port 80, dpid 1**. Click `Approve` to block the attack.
 
 #### Prove the Block worked
 
-- Use the `Verify Rules` button in the Dashboard to see the inserted rule.
+- Use the `Verify rules` button in the Dashboard to see the inserted rule.
 - Optionally, use Terminal 3 to see the inserted rule:
 
 ```bash
@@ -373,6 +373,11 @@ curl -s -X POST http://localhost:5000/api/alerts/clear
 sudo systemctl stop hitl-dashboard
 ```
 
+- To clear the Mitigation Log (Optional)
+  
+```bash
+> results/mitigator.log
+```
 ---
 
 ### Training Federated Learning Model
