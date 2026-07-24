@@ -480,13 +480,15 @@ pip3 install flask flask-cors
 Installed are Open vSwitch, Mininet from source (Python 3), the Ryu SDN
 framework, hping3, nmap, iperf3, and all Python dependencies.
 
-### Verify the install
+#### Verify the install (Optional) 
 
-My optional step is to build a pipeline from Tool 1. This will work and provide a FL model; however, I do not use this step.
+My optional step is to build a pipeline from Tool 1. This is helpful if your builds are having problems. It will work and provide a FL model; however, I do not use this step.
 
 ```bash
 make all
 ```
+
+Optional Step: Verify the installation
 
 ```bash
 # Mininet
