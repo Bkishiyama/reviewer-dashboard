@@ -230,7 +230,7 @@ I will provide this in the discussion.
 In all three terminals, use the same username and IP address to ssh into DigitalOcean.
 
 ```bash
-ssh reviewer@165.227.25.254
+ssh reviewer@165.227.28.254
 ```
 
 Click `yes` for the fingerprint.
