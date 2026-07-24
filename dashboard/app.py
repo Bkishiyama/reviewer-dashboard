@@ -131,9 +131,6 @@ def create_app(
     # treats the Entire existing file as brand new, re-alerting on the
     # whole session's history at once. "Start clean" should mean "only
     # alert on what happens from now on," not "replay everything so far."
-    # Tool 4 multi-switch fix: accept either a single path (str) or a list
-    # of paths so the dashboard can watch every live_client*.csv at once,
-    # catching attacks that land on any switch instead of just one.
     data_paths = [data_path] if isinstance(data_path, str) else list(data_path)
 
     _scanned_row_counts: dict[str, int] = {}
@@ -171,37 +168,32 @@ def create_app(
             total_new_alerts = 0
             total_new_rows = 0
 
-            # Tool 4 multi-switch fix: scan every file in data_paths so
-            # attacks landing on any switch (live_client1/2/3.csv) are
-            # detected, not just the one file the dashboard was pointed at.
             for dp in data_paths:
                 if not os.path.exists(dp):
                     logger.warning("[Scan] Data file not found: %s", dp)
                     continue
-                # To reduce diversity of traffic, I made allow_fallback=False when running IoTGoat/KALI----------------Jul20
+
                 df = detect(model_path, dp, verbose=verbose, allow_fallback=True)
 
-                # Only alert on rows appended since the last scan. Slice first,
-                # then recompute anomaly_rank within just the new rows — the
-                # rank/batch_size values detect() assigned are relative to the
-                # WHOLE file, so passing them through unsliced would make
-                # confidence_pct nonsensical once the file has more history
-                # than one scan's worth of new rows.
                 with scan_lock:
                     already_scanned = _scanned_row_counts.get(dp, 0)
                     _scanned_row_counts[dp] = len(df)
 
+                # Bug fix: keep the anomaly_rank detect() already assigned
+                # against the WHOLE file. Recomputing rank locally on just
+                # this slice was wrong -- during a sustained attack, a scan
+                # window can be almost entirely flood traffic, and re-ranking
+                # within that all-attack batch spreads truly anomalous rows
+                # across a full 1..N range, pushing many below the confidence
+                # cutoff even though they're clearly anomalous file-wide.
                 new_rows_df = df.iloc[already_scanned:].copy()
-                if not new_rows_df.empty:
-                    new_rows_df["anomaly_rank"] = (
-                        new_rows_df["anomaly_score"].rank(ascending=True).astype(int)
-                    )
 
                 new_alerts = alerts_from_detections(
                     new_rows_df,
                     bundle,
                     min_confidence = MIN_ALERT_CONFIDENCE,
                     max_alerts = MAX_ALERTS_PER_SCAN,
+                    total_count = len(df),
                 )
 
                 for alert in new_alerts:
@@ -414,6 +406,15 @@ def create_app(
         return jsonify(response), 200
 
    
+    # Clear all alerts (pending and resolved) from the in-memory queue.
+    # Does not affect the underlying CSV data or scanned-row tracking —
+    # useful for resetting between demo runs.
+    @app.route("/api/alerts/clear", methods=["POST"])
+    def clear_alerts():
+        n = queue.clear()
+        logger.info("[API] Cleared %d alert(s) from the queue.", n)
+        return jsonify({"cleared": n}), 200
+
     """  Stats endpoint
     Return queue summary counts for the dashboard status bar.
     Response shape:
@@ -595,8 +596,7 @@ def main():
         "--data",
         nargs = "+",
         default = [os.environ.get("DATA_PATH", "data/new_flows.csv")],
-        help = "Path(s) to flow CSV(s) to scan, space-separated for multiple switches "
-               "[default: data/new_flows.csv]",
+        help = "Path(s) to flow CSV(s) to scan, space-separated for multiple switches [default: data/new_flows.csv]",
     )
     parser.add_argument(
         "--port",
