@@ -168,30 +168,24 @@ class Alert:
         row: pd.Series,
         model_bundle: dict,
         batch_df: pd.DataFrame,
+        total_count: int = None,
     ) -> "Alert":
         """
         Build an Alert from a single row of detect.py's output DataFrame.
-        Parameters
-        ----------
-        row : pd.Series
-            One row from the detect() output with anomaly_score,
-            anomaly_rank, is_anomaly, and original flow columns.
-        model_bundle : dict
-            The loaded .pkl bundle from local_train.py or federated.py.
-            Used to extract baseline statistics for feature deviation.
-        batch_df : pd.DataFrame
-            The full scored DataFrame (used to compute batch_size and
-            to normalise the rank into a confidence percentage).
+        batch_df may be a SLICE of a larger file (e.g. the dashboard's
+        newly-arrived rows). total_count should be the full file's row
+        count anomaly_rank was computed against, or confidence_pct can
+        go negative.
         """
 
         batch_size = len(batch_df)
+        if total_count is None:
+            total_count = batch_size
         score = float(row.get("anomaly_score", 0.0))
         rank = int(row.get("anomaly_rank", 1))
 
-        # Confidence: flows ranked in the bottom 5% are most suspicious.
-        # Map rank percentile to a 0–100 confidence score.
-        rank_pct = rank / max(batch_size, 1)  # 0 (most anomalous) -> 1
-        confidence = round((1.0 - rank_pct) * 100, 1)  # flip: low rank = high confidence
+        rank_pct = rank / max(total_count, 1)
+        confidence = round((1.0 - rank_pct) * 100, 1)
 
         # Severity bucketing
         if rank_pct <= SEVERITY_HIGH:
@@ -383,6 +377,15 @@ class AlertQueue:
                 a for a in reversed(list(self._alerts.values()))
                 if a.decision != Decision.PENDING
             ]
+
+    # Remove all alerts from the queue (pending and resolved). Used for a
+    # clean demo reset — does not touch the underlying data files or
+    # scanned-row bookkeeping, only the in-memory alert history.
+    def clear(self) -> int:
+        with self._lock:
+            n = len(self._alerts)
+            self._alerts.clear()
+            return n
 
     # Summary counts for the dashboard's status bar. Returns counts by decision state and by severity.
     def stats(self) -> dict:
@@ -577,7 +580,17 @@ def alerts_from_detections(
     model_bundle: dict,
     min_confidence: float = 50.0,
     max_alerts: int = 50,
+    total_count: int = None,
 ) -> list[Alert]:
+    # total_count lets callers pass the FULL scored file's row count as the
+    # confidence-percentile denominator, separate from len(detections_df).
+    # This matters when detections_df is only a SLICE of newly-arrived rows
+    # (as the Tool 4 dashboard's scanner does) -- anomaly_rank was assigned
+    # relative to the whole file, so dividing by the slice's own length
+    # would produce nonsensical (often >1.0) percentiles.
+    if total_count is None:
+        total_count = len(detections_df)
+
     # Keep only flagged anomalies above the confidence threshold
     flagged = detections_df[detections_df["is_anomaly"] == True].copy()
 
@@ -591,13 +604,13 @@ def alerts_from_detections(
     alerts = []
     for _, row in flagged.iterrows():
         # Compute confidence inline to apply the filter before building Alert
-        rank_pct = int(row["anomaly_rank"]) / max(len(detections_df), 1)
+        rank_pct = int(row["anomaly_rank"]) / max(total_count, 1)
         confidence = (1.0 - rank_pct) * 100
 
         if confidence < min_confidence:
             continue
 
-        alert = Alert.from_detection_row(row, model_bundle, detections_df)
+        alert = Alert.from_detection_row(row, model_bundle, detections_df, total_count=total_count)
         alerts.append(alert)
 
         if len(alerts) >= max_alerts:
