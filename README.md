@@ -301,6 +301,11 @@ curl -s -X POST http://localhost:5000/api/alerts/clear
 h1 curl --max-time 3 http://10.0.0.2/
 ```
 
+The above should time out since we blocked it. The pings, below, on Terminal 2's mininet prompt, should go through since we did not block ICMP:
+```bash
+h1 ping -c 3 h2
+```
+
 #### Unblock the traffic
 
 - There should be a 5 minute timer that resets the path and unblocks it. 
