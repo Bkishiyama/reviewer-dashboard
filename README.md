@@ -32,7 +32,7 @@ Watch my videos:
 
 1. [Problem Statement](#problem-statement)
 2. [Project Overview](#project-overview)
-3. [Human in the Loop Dashboard](#tool_4_human-in-the-loop-security_dashboard)
+3. [Human in the Loop Dashboard](#architecture)
 4. [Repository Structure](#repository-structure)
 5. [Network Topology](#network-topology)
 6. [DigitalOcean Demo](#digitalOcean-droplet)
