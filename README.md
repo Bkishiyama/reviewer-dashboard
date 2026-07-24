@@ -147,7 +147,13 @@ GitHub MCV assisted
 
 ---
 
-## Initial Network Topology
+## System Overview
+
+![Program Overview](docs/hitl.drawio.svg)
+draw.io assisted
+
+
+### Initial Network Topology - Pre Tool 4
 
 ![Architecture Diagram](docs/sdn_fl_T4.svg)
 draw.io assisted
@@ -166,17 +172,12 @@ draw.io assisted
 
 ---
 
-## System Overview
-
-![Program Overview](docs/hitl.drawio.svg)
-draw.io assisted
-
-### Planned System Flow
+### Planned System Flow for Tool 4
 
 ![System Flow](docs/HITLarchi.drawio.svg)
 draw.io assisted
 
----
+___
 
 ## DigitalOcean Droplet
 
