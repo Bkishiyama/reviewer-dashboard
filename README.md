@@ -18,7 +18,7 @@ and human-centered threat response.
 Watch my videos:
 
 > 🎥 [To be added](https://youtu.be/--piwDzTGkY)  
-> 📚 with [Copy-and-Paste commands](https://1drv.ms/w/c/0b9ef4570f82165e/IQAq_i-HaHxiR68uXXBLw-1_AXld-KmNJMdVscRaK2X4Nhg?e=iAmRyj)
+> 📚 with [DigitalOcean Demo](#digitalOcean-droplet)
 
 > 🎥 [Visual Studio Code](https://youtu.be/MVw3uOJcdss)
 > I use Visual Studio Code for my dashboard. I attach GitHub Codespaces, and add-ins as shown in the video, which includes CoPilot AI usage.
