@@ -36,7 +36,7 @@ Watch my videos:
 3. [System Overview](#system-overview)
 4. [Tool 4 Architecture](#tool-4-architecture)
 5. [DigitalOcean Demo](#digitalOcean-droplet)
-6. [Ubuntu 22.04 Lab](#22.04-lab)
+6. [Ubuntu 22.04 Lab](#ubuntu-22-04-lab)
 7. [Tool 1: Federated Anomaly Detection](#tool-1--federated-anomaly-detection)
 8. [Tool 2: Byzantine-robust Poisoning Defense](#tool-2--byzantine-robust-poisoning-defense)
 9. [Tool 3: OpenFlow FlowMod Injection](#tool-3--openflow-flowmod-injection)
@@ -985,17 +985,17 @@ chmod +x install.sh && ./install.sh
 ryu-manager sdn_mininet/ryu_collector.py --observe-links
 ```
 
-# Terminal 2: Mininet topology (all attacks)
+#### Terminal 2: Mininet topology (all attacks)
 ```bash
 sudo python3 sdn_mininet/topology.py --time 120 --attack --inject
 ```
 
-# Terminal 3: HITL dashboard (Tool 4)
+#### Terminal 3: HITL dashboard (Tool 4)
 ```bash
 python3 cli.py dashboard --model models/global.pkl --data data/live_client1.csv
 ```
 
-# Terminal 4: watch flow collection
+#### Terminal 4: watch flow collection
 ```bash
 watch -n 5 wc -l data/live_client*.csv
 ```
