@@ -375,10 +375,11 @@ curl -s -X POST http://localhost:5000/api/alerts/clear
 sudo systemctl stop hitl-dashboard
 ```
 
-- To clear the Mitigation Log (Optional)
+- To clear the persistent Mitigation and hitl Audit Logs (Optional)
   
 ```bash
 > results/mitigator.log
+> results/hitl_audit.log
 ```
 ---
 
@@ -511,6 +512,9 @@ python3 -c "import sklearn, flask, scapy; print('All OK')"
 
 #### Train the FL model
 
+If this is your **first time** running the app, you  will need to train the model. Once you are finished, you do not need to train it on subsequent runs.
+The FL model will be persistent so if you trained it once, you can skip this step.
+
 Step 1. Stop everything, including attacks and make a clean slate:
 
 ```bash
@@ -527,23 +531,21 @@ I start Ryu using its commands and to build the connections and tables for my mu
 ryu-manager sdn_mininet/ryu_collector.py ryu.app.simple_switch_13 ryu.app.ofctl_rest --observe-links
 ```
 
-> ⚠  Collector-only. Do NOT add ryu.app.simple_switch_13 since it competes to install flows and breaks flow-clearing.
-> **Alternative** Ryu method build. I used this, originally, as the build but my bridge connections did not work.
-> I recommend building with the above for Ubuntu 22.04 and not this one. I use this one in **DigitalOcean**:
-```bash
-ryu-manager sdn_mininet/ryu_collector.py ryu.app.ofctl_rest --observe-links
-```
+> ⚠  I add `ryu.app.simple_switch_13` since it installs the flow tables. 
+> **DigitalOcean**, above lab, does not use it. 
 
-Step 3: run clean topology with iperf3 running (no attack flag)
-Wait **5 minutes** as this data will be used for training.
+Step 3: run clean topology with iperf3 running (no attack flag) in Terminal 2
+Wait **5 minutes** as this data will be logged in the CSV files and used for training.
 
 ```bash
+cd ~/reviewer-dashboard
 sudo python3 sdn_mininet/topology.py --time 300
 ```
 
-Step 4 - confirm iperf3 traffic is in the CSV
+Step 4 - confirm iperf3 traffic is in the CSV in Terminal 3
 
 ```bash
+cd ~/reviewer-dashboard
 python3 -c "
 import pandas as pd
 df = pd.read_csv('data/live_client2.csv')
@@ -555,7 +557,7 @@ print('Rows:', len(df))
 
 You should see results or numbers
 
-Step 5 - train on this data so the model learns iperf3, ping, http is normal
+Step 5 - train on this data so the model learns iperf3, ping, http is normal (Terminal 3)
 
 ```bash
 python3 cli.py train --data data/live_client1.csv --client-id live_c1 --out models/live_c1.pkl
@@ -564,30 +566,32 @@ python3 cli.py train --data data/live_client3.csv --client-id live_c3 --out mode
 python3 cli.py federate --models "models/live_*.pkl" --out models/live_global.pkl
 ```
 
-Step 6 - clean up and restart for the demo
+Step 6 - clean up and restart for the demo (Terminal 2)
+
+Exit mininet
+```bash
+exit
+```
+
+Clean the topology
 
 ```bash
 sudo mn -c
 rm -f data/live_client*.csv
 ```
 
-Step 7 - start Ryu again
+Step 7 - start Ryu again (Terminal 1)
 ```bash
 ryu-manager sdn_mininet/ryu_collector.py ryu.app.simple_switch_13 ryu.app.ofctl_rest --observe-links
 ```
 
-> **Alternative** Ryu method build for DigitalOcean. Use the above for Ubuntu 22.04 and not this one.
-```bash
-ryu-manager sdn_mininet/ryu_collector.py ryu.app.ofctl_rest --observe-links
-```
-
-Step 8 - Start Mininet again
+Step 8 - Start Mininet again (Terminal 2)
 
 ```bash
 sudo python3 sdn_mininet/topology.py
 ```
 
-Step 9 - launch dashboard  -> check here. 
+Step 9 - launch dashboard  -> This will show status
 
 ```bash
 python3 cli.py dashboard \
@@ -649,20 +653,22 @@ Click the alert. Point out:
 -	Z-score far above baseline - "the model has never seen this many packets from this host in normal traffic"
 -	Detection pattern - "Potential DDoS / volumetric flood"
 
-Step 2. (Optional) commands to see the attack
+Step 2. (Optional) commands to see the attack or used mainly for my troubleshooting
 
-In a different terminal, you can watch the packet count rise:
+In terminal 4, you can watch the packet count rise, for troubleshooting:
 
 ```bash
+cd ~/reviewer-dashboard
 tail -5 data/live_client2.csv
 ```
 
-Watch the switch:
+(Optional) Watch the switch in terminal 5 for my troubleshooting:
 ```bash
+cd ~/reviewer-dashboard
 sudo ovs-ofctl dump-flows s2 -O OpenFlow13
 ```
 
-Shortcut to see the inserted block command in the Dashboard, or in another terminal:
+(Optional) Shortcut to see the inserted block command in the Dashboard, or in another terminal:
 
 ```bash
 cd ~/reviewer-dashboard
@@ -671,12 +677,49 @@ sudo ovs-ofctl dump-flows s2 -O OpenFlow13 | grep feedfacecafe0004
 
 Shows: cookie=0xfeedfacecafe0004, priority=30000, n_packets=N, actions=drop
 
-To see the blocks with timestamps, use the Dashboard shortcut or in another terminal:
+(Optional) To see the blocks with timestamps, use the Dashboard shortcut or in another terminal:
 
 ```bash
 cd ~/reviewer-dashboard
 cat results/mitigator.log
+cat results/hitl_audit.log
 ```
+
+---
+
+### Clean up or Shut down
+
+#### Terminal 2, mininet prompt
+
+```bash
+exit
+```
+
+Terminal 2:
+
+```bash
+sudo mn -c
+```
+
+- clear the alert queue:
+
+```bash
+curl -s -X POST http://localhost:5000/api/alerts/clear
+```
+
+- Stop the dashboard (optional - okay to leave on)
+
+```bash
+sudo systemctl stop hitl-dashboard
+```
+
+- To clear the persistent Mitigation and hitl Audit Logs (Optional)
+  
+```bash
+> results/mitigator.log
+> results/hitl_audit.log
+```
+---
 
 ___
 
