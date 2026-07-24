@@ -327,7 +327,9 @@ To see any new alerts and clear out the old queue, I find this helpful:
 curl -s -X POST http://localhost:5000/api/alerts/clear
 ```
 
-- Test if h1 can send http traffic to h2 in Terminal 2 at the mininet prompt:
+- Test if h1 can send http traffic to h2 in Terminal 2 at the mininet prompt.
+  - If you still have the attack going in Mininet and no new alerts, the attack is blocked.
+  - If the attack is going and you need to stop the attack (no mininet prompt), use `Ctrl + C`.
 
 ```bash
 h1 curl --max-time 3 http://10.0.0.2/
