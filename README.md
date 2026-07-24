@@ -403,34 +403,43 @@ sudo systemctl restart hitl-dashboard
 ```
 ___
 
-## Installation
+## Ubuntu 22.04 Lab
 
 ### Prerequisites
 
-Ubuntu 20.04 (native or VM). The lab does not work inside Docker for the live
-Mininet mode because Mininet requires kernel namespaces.
+I originally built this on Ubuntu 20.04 (native or VM). For Tool 1, I also built it in Docker. 
+For Tools 2, 3, and 4, the lab does not work inside Docker for the live Mininet mode because Mininet requires kernel namespaces.
+In Tools 3 and 4, I transitioned to Ubuntu 22.04. Tool 3 has been tested in both Ubuntu 20.04 and 22.04. Tool 4 has only been tested in Ubuntu 22.04.
+This is the set-up for Ubuntu 22.04.
 
 ### Setup
 1. Import the IoTGoat .vdi into VirtualBox; set its NIC to Internal Network "iotlab"
 2. Set Kali's NIC to an Internal Network, "iotlab"
 3. Ubuntu needs a NIC set on "iotlab"
-4. Configure static IPs: IoTGoat 192.168.100.2/24, Kali 192.168.200.3/24
+4. Configure static IPs: IoTGoat 192.168.100.2/24, Kali 192.168.100.3/24, and Mininet bridge is 192.168.100.211
 5. Run `make iot-bridge` after topology.py is already running
 
-### Automated setup
+#### Automated setup
+
+Clone the repository and install requirements. These steps only need to be done once.
 
 ```bash
-chmod +x install.sh
-./install.sh
+git clone https://github.com/Bkishiyama/reviewer-dashboard.git
+cd reviewer-dashboard
+pip3 install --user -r requirements.txt
 ```
 
-This installs Open vSwitch, Mininet from source (Python 3), the Ryu SDN
-framework, hping3, nmap, iperf3, and all Python dependencies.
-
-### Manual Python dependencies
+Install requirements for Ubuntu 22.04. You may install in Ubuntu 20.04; see ./install above
 
 ```bash
-pip3 install -r requirements.txt
+cd ~/reviewer-dashboard
+chmod +x install.sh-22.04.sh
+./install-22.04.sh
+```
+
+Reload Bash configuration file into your current terminal session.
+```bash
+source ~/.bashrc
 ```
 
 Tool 4 requires Flask (not included in the base Ryu environment):
@@ -439,7 +448,16 @@ Tool 4 requires Flask (not included in the base Ryu environment):
 pip3 install flask flask-cors
 ```
 
+Installed are Open vSwitch, Mininet from source (Python 3), the Ryu SDN
+framework, hping3, nmap, iperf3, and all Python dependencies.
+
 ### Verify the install
+
+My optional step is to build a pipeline from Tool 1. This will work and provide a FL model; however, I do not use this step.
+
+```bash
+make all
+```
 
 ```bash
 # Mininet
@@ -452,65 +470,178 @@ ryu-manager --version
 python3 -c "import sklearn, flask, scapy; print('All OK')"
 ```
 
----
+#### Train the FL model
 
-## Tool 1: Federated Anomaly Detection
-
-Tool 1 trains an Isolation Forest on each switch's flow data independently,
-then federates the models into a single global anomaly detector without sharing
-raw traffic. Detection runs against the federated model rather than any
-individual client's data.
-
-### Offline demo (no Mininet needed)
+Step 1. Stop everything, including attacks and make a clean slate:
 
 ```bash
-# 1. Generate synthetic flow data for three clients
-python3 cli.py generate-data --n-clients 3 --n-benign 2000 --n-attack 400
-
-# 2. Train one local model per client
-python3 cli.py train --data data/client1.csv --client-id client1 --out models/client1.pkl
-python3 cli.py train --data data/client2.csv --client-id client2 --out models/client2.pkl
-python3 cli.py train --data data/client3.csv --client-id client3 --out models/client3.pkl
-
-# 3. Federate into one global model
-python3 cli.py federate --models "models/client*.pkl" --out models/global.pkl
-
-# 4. Score new flows
-python3 cli.py detect --model models/global.pkl --data data/new_flows.csv --top-n 10
-
-# 5. Evaluate against labeled test data
-python3 cli.py evaluate --model models/global.pkl \
-    --detections results/detections.csv \
-    --data data/test_labeled.csv \
-    --local-models "models/client*.pkl" \
-    --out results/
+sudo mn -c
+pkill -f "cli.py dashboard"
+rm -f data/live_client*.csv 
+rm -f models/live_*.pkl
 ```
 
-Or run the entire pipeline in one command:
+Step 2: start Ryu
 
+I start Ryu using its commands and to build the connections and tables for my multi-VM build:
 ```bash
-make all
+ryu-manager sdn_mininet/ryu_collector.py ryu.app.simple_switch_13 ryu.app.ofctl_rest --observe-links
 ```
 
-### Live Mininet mode
+> ⚠  Collector-only. Do NOT add ryu.app.simple_switch_13 since it competes to install flows and breaks flow-clearing.
+> **Alternative** Ryu method build. I used this, originally, as the build but my bridge connections did not work.
+> I recommend building with the above for Ubuntu 22.04 and not this one. I use this one in **DigitalOcean**:
+```bash
+ryu-manager sdn_mininet/ryu_collector.py ryu.app.ofctl_rest --observe-links
+```
+
+Step 3: run clean topology with iperf3 running (no attack flag)
+Wait 5 minutes as this data will be used for training.
 
 ```bash
-# Terminal 1: Ryu controller
-ryu-manager sdn_mininet/ryu_collector.py --observe-links
+sudo python3 sdn_mininet/topology.py --time 300
+sleep 300
+```
 
-# Terminal 2: Mininet topology (benign traffic only)
-sudo python3 sdn_mininet/topology.py --time 120
+Step 4 - confirm iperf3 traffic is in the CSV
 
-# Terminal 3: watch CSVs grow
-watch -n 5 wc -l data/live_client*.csv
+```bash
+python3 -c "
+import pandas as pd
+df = pd.read_csv('data/live_client2.csv')
+print('Max packets:', df['packets'].max())
+print('Mean packets:', df['packets'].mean().round(2))
+print('Rows:', len(df))
+"
+```
 
-# After collection — train on live data
+You should see results or numbers
+
+Step 5 - train on this data so the model learns iperf3, ping, http is normal
+
+```bash
 python3 cli.py train --data data/live_client1.csv --client-id live_c1 --out models/live_c1.pkl
 python3 cli.py train --data data/live_client2.csv --client-id live_c2 --out models/live_c2.pkl
 python3 cli.py train --data data/live_client3.csv --client-id live_c3 --out models/live_c3.pkl
 python3 cli.py federate --models "models/live_*.pkl" --out models/live_global.pkl
-python3 cli.py detect   --model models/live_global.pkl --data data/live_client2.csv --top-n 10
 ```
+
+Step 6 - clean up and restart for the demo
+
+```bash
+sudo mn -c
+rm -f data/live_client*.csv
+```
+
+Step 7 - start Ryu again
+```bash
+ryu-manager sdn_mininet/ryu_collector.py ryu.app.simple_switch_13 ryu.app.ofctl_rest --observe-links
+```
+
+> **Alternative** Ryu method build for DigitalOcean. Use the above for Ubuntu 22.04 and not this one.
+```bash
+ryu-manager sdn_mininet/ryu_collector.py ryu.app.ofctl_rest --observe-links
+```
+
+Step 8 - Start Mininet again
+
+```bash
+sudo python3 sdn_mininet/topology.py
+```
+
+Step 9 - launch dashboard  -> check here. 
+
+```bash
+python3 cli.py dashboard \
+    --model models/live_global.pkl \
+    --data  data/live_client2.csv
+```
+
+Step 10 – Check dashboard on a browser
+
+Open Chrome or Edge browser and enter the URL:
+
+```url
+http://localhost:5000
+```
+
+Click `⚡ Scan now` button in the Dashboard. This time the model knows iperf3 is normal so you should see zero or very few alerts.
+
+Step 11 – Launch the attack, from h4 to h2
+
+On Terminal 2, mininet prompt >:
+
+```bash
+h4 timeout 15 hping3 -S --flood -p 80 10.0.0.2
+```
+
+Step 12 – Look for the DDoS attack in the Dashboard
+
+Click `⚡ Scan now` again. The hping3 flood will stand out clearly because it looks completely different from iperf3. You should see 40-byte SYN packets at millions per second versus large sustained TCP streams.
+
+Step 13 – block the attack
+
+Wait for the alert to appear in the dashboard, click `⛔ Block`, then test h1 again (Terminal 2, mininet prompt):
+
+In the Dashboard, look for 10.0.0.4 (source) to 10.0.0.2 (destination). The reverse path will also show up as it generates lots of traffic flow from the response of the attack.
+
+Step 14 – retest in Terminal 2, at the mininet prompt:
+
+```bash
+h4 curl --max-time 3 http://10.0.0.2/
+```
+
+This should time out → h4 is blocked.
+That side-by-side comparison is your strongest demo moment:
+-	h4 → h2 ❌ times out → attacker blocked
+-	h2 → h4 ✅ succeeds → legitimate traffic unaffected
+
+---
+
+### Proof of Attack
+
+Things to notice during the demo to prove the DDoS alert is real:
+
+Step 1. Look at the alert details in the dashboard
+Click the alert. Point out:
+-	Severity: HIGH and confidence percentage
+-	src_ip: 10.0.0.4 → this is h4, the known attacker host
+-	dst_ip: 10.0.0.2, dst_port: 80 → targeting h2's HTTP server
+-	Packet count in the millions
+-	Z-score far above baseline - "the model has never seen this many packets from this host in normal traffic"
+-	Detection pattern - "Potential DDoS / volumetric flood"
+
+Step 2. (Optional) commands to see the attack
+
+In a different terminal, you can watch the packet count rise:
+
+```bash
+tail -5 data/live_client2.csv
+```
+
+Watch the switch:
+```bash
+sudo ovs-ofctl dump-flows s2 -O OpenFlow13
+```
+
+Shortcut to see the inserted block command in the Dashboard, or in another terminal:
+
+```bash
+cd ~/reviewer-dashboard
+sudo ovs-ofctl dump-flows s2 -O OpenFlow13 | grep feedfacecafe0004
+```
+
+Shows: cookie=0xfeedfacecafe0004, priority=30000, n_packets=N, actions=drop
+
+To see the blocks with timestamps, use the Dashboard shortcut or in another terminal:
+
+```bash
+cd ~/reviewer-dashboard
+cat results/mitigator.log
+```
+
+___
+
 
 ### How it works
 
@@ -533,21 +664,29 @@ and removes the outlier before aggregation.
 
 ### Run the poisoning demo
 
+#### Terminal 1: Ryu controller
 ```bash
-# Terminal 1: Ryu controller
 ryu-manager sdn_mininet/ryu_collector.py --observe-links
+```
 
-# Terminal 2: Mininet topology
+#### Terminal 2: Mininet topology
+```bash
 sudo python3 sdn_mininet/topology.py --time 120 --attack
+```
 
-# Terminal 3: legitimate clients upload healthy metrics
+##### Terminal 3: legitimate clients upload healthy metrics
+```bash
 python3 sdn_mininet/poisoned_host.py --host h1 --no-poison --controller-ip 127.0.0.1
 python3 sdn_mininet/poisoned_host.py --host h2 --no-poison --controller-ip 127.0.0.1
+```
 
-# Terminal 4: attacker uploads poisoned metric (100× multiplier)
+#### Terminal 4: attacker uploads poisoned metric (100× multiplier)
+```bash
 python3 sdn_mininet/poisoned_host.py --host h6 --multiplier 100 --controller-ip 127.0.0.1
+```
 
-# Trigger aggregation — watch sanitizer reject h6
+#### Trigger aggregation — watch sanitizer reject h6
+```bash
 curl http://127.0.0.1:8080/fl/aggregate
 ```
 
@@ -595,19 +734,23 @@ matched, so `h1 ping h2` continues to succeed while `h1 curl h2` times out.
 
 ### Run the attack
 
+#### Terminal 1: Ryu controller
 ```bash
-# Terminal 1: Ryu controller
 ryu-manager sdn_mininet/ryu_collector.py --observe-links
-
-# Terminal 2: Mininet topology with injection
-sudo python3 sdn_mininet/topology.py --time 120 --inject
-
-# Terminal 3: verify in Mininet CLI
-mininet> h1 curl --max-time 3 http://10.0.0.2/   # times out (injected)
-mininet> h1 ping -c 3 10.0.0.2                   # succeeds (evasion)
-mininet> sh ovs-ofctl dump-flows s1 -O OpenFlow13 # shows rogue rule
 ```
 
+#### Terminal 2: Mininet topology with injection
+```bash
+sudo python3 sdn_mininet/topology.py --time 120 --inject
+```
+
+#### Terminal 3, mininet prompt: verify in Mininet CLI
+```bash
+h1 curl --max-time 3 http://10.0.0.2/
+h1 ping -c 3 10.0.0.2
+sh ovs-ofctl dump-flows s1 -O OpenFlow13
+```
+The http traffic times out but the pings suceed. 
 The injected rule carries cookie `0xDEADBEEFCAFE0001` at priority 40000 and is
 visible in `ovs-ofctl dump-flows`.
 
@@ -642,11 +785,13 @@ assisted by Eraser AI @ https://www.eraser.io/ai
 
 ### Quick start (offline or no Mininet needed)
 
+#### Build the model first if you have not already
 ```bash
-# Build the model first if you have not already
 make all
+```
 
-# Launch the dashboard
+#### Launch the dashboard
+```bash
 python3 cli.py dashboard --model models/global.pkl --data data/new_flows.csv
 ```
 
@@ -654,37 +799,66 @@ Open `http://localhost:5000` in a browser. Click **⚡ Scan now** to detect
 anomalies and populate the alert list. Select an alert to see its full
 explanation and recommendation, then choose an action.
 
+---
+
 ### Live Mininet mode
 
+#### Terminal 1. Start the Ryu Controller
 ```bash
-# Terminal 1
 ryu-manager sdn_mininet/ryu_collector.py --observe-links
+```
 
-# Terminal 2
+#### Terminal 2. Start Mininet
+```bash
 sudo python3 sdn_mininet/topology.py --time 120 --attack
+```
 
-# Terminal 3 dashboard reads live CSV, auto-scans every 30 s
+#### Terminal 3 dashboard reads live CSV, auto-scans every 30 s
+```bash
 python3 cli.py dashboard --model models/global.pkl --data data/live_client1.csv
 ```
 
+---
+
 ### Terminal mode (no browser)
 
+#### Print alerts and prompt for each one
 ```bash
-# Print alerts and prompt for each one
 python3 cli.py hitl --model models/global.pkl --data data/new_flows.csv --interactive
+```
 
-# Auto-block all HIGH-severity alerts without prompting
+#### Auto-block all HIGH-severity alerts without prompting
+```bash
 python3 cli.py hitl --model models/global.pkl --data data/new_flows.csv --auto-block
 ```
 
+---
+
 ### Demo scenarios
 
+#### DDoS from h4 (live_client2.csv)
 ```bash
-make demo-hitl  # DDoS from h4 (live_client2.csv)
-make demo-scan  # Port scan from h6 (live_client3.csv)
-make demo-inject  # FlowMod injection from h7 — shows both cookies side by side
-make demo-fte  # Flow table exhaustion
-make demo-baseline  # Clean traffic — no alerts expected
+make demo-hitl
+```
+
+#### Port scan from h6 (live_client3.csv)
+```bash
+make demo-scan
+```
+
+#### FlowMod injection from h7 — shows both cookies side by side
+```bash
+make demo-inject
+```
+
+#### Flow table exhaustion
+```bash
+make demo-fte
+```
+
+#### Clean traffic — no alerts expected
+```bash
+make demo-baseline  
 ```
 
 The `demo-inject` scenario automatically runs `ovs-ofctl dump-flows s1` after
@@ -694,6 +868,8 @@ the operator approves mitigation, showing both rules simultaneously:
 cookie=0xfeedfacecafe0004  priority=30000  actions=drop   ← Tool 4 defensive
 cookie=0xdeadbeefcafe0001  priority=40000  actions=drop   ← Tool 3 rogue
 ```
+
+---
 
 ### Alerts Explained
 
@@ -706,7 +882,7 @@ Every alert includes:
 - **Feature breakdown** -> the top 3 most anomalous features with Z-scores and
   observed-vs-baseline comparison
 - **Recommendation** -> three labelled options (Approve/Block, Monitor, Ignore)
-  with specific guidance based on severity, protocol, and destination port
+  with guidance based on severity, protocol, and destination port
 
 ### REST API (port 5000)
 
@@ -731,6 +907,8 @@ curl -X POST http://localhost:5000/api/decide \
   -d '{"alert_id": "a1b2c3d4", "decision": "approved"}'
 ```
 
+---
+
 ### Keyboard shortcuts
 
 | Key | Action |
@@ -744,11 +922,16 @@ curl -X POST http://localhost:5000/api/decide \
 | `Escape` | Close modal |
 | `?` | Show keyboard help |
 
+---
+
 ### Verify mitigation
 
 ```bash
 make verify
-# or
+```
+or
+
+```bash
 sudo ovs-ofctl dump-flows s1 -O OpenFlow13 | grep feedfacecafe0004
 ```
 
@@ -761,6 +944,8 @@ curl -X POST http://localhost:5000/api/mitigation/unblock \
   -H "Content-Type: application/json" \
   -d '{"src_ip": "10.0.0.4", "dst_port": 80, "protocol": "tcp", "dpid": 2}'
 ```
+
+---
 
 ### Audit logs
 
@@ -776,29 +961,49 @@ curl -X POST http://localhost:5000/api/mitigation/unblock \
 
 ### All tools, live Mininet
 
+#### Setup (run once)
 ```bash
-# Setup (run once)
 chmod +x install.sh && ./install.sh
+```
 
-# Terminal 1: Ryu controller (Tools 1, 2, 4)
+#### Terminal 1: Ryu controller (Tools 1, 2, 4)
+```bash
 ryu-manager sdn_mininet/ryu_collector.py --observe-links
+```
 
 # Terminal 2: Mininet topology (all attacks)
+```bash
 sudo python3 sdn_mininet/topology.py --time 120 --attack --inject
+```
 
 # Terminal 3: HITL dashboard (Tool 4)
+```bash
 python3 cli.py dashboard --model models/global.pkl --data data/live_client1.csv
+```
 
 # Terminal 4: watch flow collection
+```bash
 watch -n 5 wc -l data/live_client*.csv
 ```
 
+---
+
 ### Offline pipeline (no VMs)
 
+#### data → train → aggregate → detect → evaluate
+
 ```bash
-make all  # data → train → aggregate → detect → evaluate
-make hitl  # Tool 4 terminal scan
-make dashboard  # Tool 4 browser dashboard
+make all
+```
+
+#### Tool 4 terminal scan  
+```bash
+make hitl
+```
+
+#### Tool 4 browser dashboard
+```bash
+make dashboard  
 ```
 
 ---
@@ -867,7 +1072,7 @@ expected results.
 | `n_rounds` | 3 | FL simulation rounds |
 | `n_estimators` | 100 | Isolation Forest trees per client |
 | `sanitize` | `true` | Enable Z-score sanitizer |
-| `z_threshold` | 2.0 | Z-score cutoff for poisoning detection |
+| `z_threshold` | 1.5 | Z-score cutoff for poisoning detection |
 | `poisoned_clients` | `h6: 100.0` | Simulated poisoning in FL simulation |
 
 ### `config/hitl_config.yaml` (Tool 4)
@@ -885,15 +1090,15 @@ expected results.
 
 ## Running tests
 
+### Tool 2 unit tests
 ```bash
-# Tool 2 unit tests
 python3 -m pytest tests/test_sanitizer.py -v
-
-# Expected output: 15+ passing tests covering healthy data,
-# poisoned hosts, edge cases, vector sanitizer, and Z-threshold sensitivity
 ```
 
----
+Expected output: 15+ passing tests covering healthy data,
+poisoned hosts, edge cases, vector sanitizer, and Z-threshold sensitivity
+
+___
 
 # Project File Descriptions
 
