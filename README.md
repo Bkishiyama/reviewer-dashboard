@@ -31,21 +31,20 @@ Watch my videos:
 ## Table of contents
 
 1. [Problem Statement](#problem-statement)
-2. [Tool 4 Architecture](#architecture)
-3. [Project Overview](#project-overview)
-4. [Repository Structure](#repository-structure)
-5. [Network Topology](#network-topology)
-6. [DigitalOcean Demo](#digitalOcean-droplet)
-7. [Installation](#installation)
-8. [Tool 1: Federated Anomaly Detection](#tool-1--federated-anomaly-detection)
-9. [Tool 2: Byzantine-robust Poisoning Defense](#tool-2--byzantine-robust-poisoning-defense)
-10. [Tool 3: OpenFlow FlowMod Injection](#tool-3--openflow-flowmod-injection)
-11. [Tool 4: Human-in-the-Loop Security Dashboard](#tool-4--human-in-the-loop-security-dashboard)
-12. [Full pipeline reference](#full-pipeline-reference)
-13. [Makefile targets](#makefile-targets)
-14. [Configuration](#configuration)
-15. [Running tests](#running-tests)
-16. [Limitations and known issues](#limitations-and-known-issues)
+2. [Project Overview](#project-overview)
+3. [System Overview](#system-overview)
+4. [Tool 4 Architecture](#tool_4_architecture)
+5. [DigitalOcean Demo](#digitalOcean-droplet)
+6. [Ubuntu 22.04 Lab](#ubuntu-22.04-lab)
+7. [Tool 1: Federated Anomaly Detection](#tool-1--federated-anomaly-detection)
+8. [Tool 2: Byzantine-robust Poisoning Defense](#tool-2--byzantine-robust-poisoning-defense)
+9. [Tool 3: OpenFlow FlowMod Injection](#tool-3--openflow-flowmod-injection)
+10. [Tool 4: Human-in-the-Loop Security Dashboard](#tool-4--human-in-the-loop-security-dashboard)
+11. [Full pipeline reference](#full-pipeline-reference)
+12. [Makefile targets](#makefile-targets)
+13. [Configuration](#configuration)
+14. [Running tests](#running-tests)
+15. [Limitations and known issues](#limitations-and-known-issues)
 
 ---
 
@@ -86,35 +85,6 @@ Security Information and Event Management (SIEM) platforms such as Splunk, IBM Q
 #### SDN Security Controllers
 
 Projects such as ONOS, with Intent-based security policies, and OpenDaylight, with security applications, provide SDN  security enforcement. These systems install flow rules when it detects an attack. These systems are designed for automated policy enforcement and not human decision. The operator could define policies in advance with the controller enforcing them but without real-time human review. This approach works well for documented predictable threats but cannot handle novel or ambiguous attacks where operator judgment is needed.  
-
-___
-
-## Tool 4: Human-in-the-Loop security dashboard
-
-Tool 4 is the human-centered security layer. It detects anomalous flows,
-explains **why** each flow was flagged, presents the operator with a clear
-recommendation, and waits for the operator to decide whether to block, monitor,
-or ignore. No traffic is ever blocked automatically.
-
-### Architecture
-
-![Architecture Diagram](docs/sdnflt4v5.svg)
-
-assisted by Eraser AI @ https://www.eraser.io/ai
-
----
-
-### Tool 4
-
-| File | Purpose |
-|------|---------|
-| `src/hitl.py` | `Alert` dataclass, `AlertQueue`, `alerts_from_detections()` |
-| `src/explainer.py` | Pattern matching, human-readable explanation + recommendation |
-| `sdn_mininet/mitigator.py` | Installs and removes OpenFlow DROP rules |
-| `dashboard/app.py` | Flask REST API (port 5000) |
-| `dashboard/templates/index.html` | Operator alert review dashboard |
-| `dashboard/static/dashboard.js` | Live polling, decision flow, keyboard shortcuts |
-| `config/hitl_config.yaml` | All Tool 4 thresholds, mitigation params, demo scenarios |
 
 ___
 
@@ -175,7 +145,7 @@ The project runs on **Ubuntu 20.04** with **Python 3.10**, **Mininet 2.3.1b4**, 
 ```
 GitHub MCV assisted  
 
----
+___
 
 ## System Overview
 
@@ -206,6 +176,35 @@ draw.io assisted
 
 ![System Flow](docs/HITLarchi.drawio.svg)
 draw.io assisted
+
+___
+
+## Tool 4 Architecture 
+
+Tool 4 is the human-centered security layer. It detects anomalous flows,
+explains **why** each flow was flagged, presents the operator with a clear
+recommendation, and waits for the operator to decide whether to block, monitor,
+or ignore. No traffic is ever blocked automatically.
+
+### Human-in-the-Loop Security Dashboard
+
+![Architecture Diagram](docs/sdnflt4v5.svg)
+
+assisted by Eraser AI @ https://www.eraser.io/ai
+
+---
+
+### Tool 4
+
+| File | Purpose |
+|------|---------|
+| `src/hitl.py` | `Alert` dataclass, `AlertQueue`, `alerts_from_detections()` |
+| `src/explainer.py` | Pattern matching, human-readable explanation + recommendation |
+| `sdn_mininet/mitigator.py` | Installs and removes OpenFlow DROP rules |
+| `dashboard/app.py` | Flask REST API (port 5000) |
+| `dashboard/templates/index.html` | Operator alert review dashboard |
+| `dashboard/static/dashboard.js` | Live polling, decision flow, keyboard shortcuts |
+| `config/hitl_config.yaml` | All Tool 4 thresholds, mitigation params, demo scenarios |
 
 ___
 
@@ -374,9 +373,7 @@ sudo systemctl stop hitl-dashboard
 
 ---
 
-## Training Federated Learning Model
-
-### Method 1
+### Training Federated Learning Model
 
 DO NOT DO THIS. I already trained the model for DigitalOcean so this does not need to be done. If I had too many anamolies, I was planning on training for 1200 seconds.
 
