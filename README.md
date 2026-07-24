@@ -535,11 +535,10 @@ ryu-manager sdn_mininet/ryu_collector.py ryu.app.ofctl_rest --observe-links
 ```
 
 Step 3: run clean topology with iperf3 running (no attack flag)
-Wait 5 minutes as this data will be used for training.
+Wait **5 minutes** as this data will be used for training.
 
 ```bash
 sudo python3 sdn_mininet/topology.py --time 300
-sleep 300
 ```
 
 Step 4 - confirm iperf3 traffic is in the CSV
