@@ -33,7 +33,7 @@ Watch my videos:
 1. [Problem Statement](#problem-statement)
 2. [Project Overview](#project-overview)
 3. [System Overview](#system-overview)
-4. [Tool 4 Architecture](#tool_4_architecture)
+4. [Tool 4 Architecture](#tool-4-architecture)
 5. [DigitalOcean Demo](#digitalOcean-droplet)
 6. [Ubuntu 22.04 Lab](#ubuntu-22.04-lab)
 7. [Tool 1: Federated Anomaly Detection](#tool-1--federated-anomaly-detection)
