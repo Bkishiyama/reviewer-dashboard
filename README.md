@@ -17,7 +17,8 @@ and human-centered threat response.
 
 Watch my videos:
 
-> 🎥 [Human in the Loop](https://youtu.be/udYMWUjQA60)  
+> 🎥 [Human in the Loop]<a href="https://youtu.be/udYMWUjQA60" target="_blank">Tool 4</a>
+
 > 📚 with [DigitalOcean Demo](#digitalOcean-droplet)
 
 > 🎥 [Visual Studio Code](https://youtu.be/MVw3uOJcdss)
