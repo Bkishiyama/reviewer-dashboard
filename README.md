@@ -470,7 +470,7 @@ Install requirements for Ubuntu 22.04. You may install in Ubuntu 20.04; see ./in
 
 ```bash
 cd ~/reviewer-dashboard
-chmod +x install.sh-22.04.sh
+chmod +x install-22.04.sh
 ./install-22.04.sh
 ```
 
