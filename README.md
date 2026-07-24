@@ -86,7 +86,36 @@ Security Information and Event Management (SIEM) platforms such as Splunk, IBM Q
 
 Projects such as ONOS, with Intent-based security policies, and OpenDaylight, with security applications, provide SDN  security enforcement. These systems install flow rules when it detects an attack. These systems are designed for automated policy enforcement and not human decision. The operator could define policies in advance with the controller enforcing them but without real-time human review. This approach works well for documented predictable threats but cannot handle novel or ambiguous attacks where operator judgment is needed.  
 
+___
+
+## Tool 4: Human-in-the-Loop security dashboard
+
+Tool 4 is the human-centered security layer. It detects anomalous flows,
+explains **why** each flow was flagged, presents the operator with a clear
+recommendation, and waits for the operator to decide whether to block, monitor,
+or ignore. No traffic is ever blocked automatically.
+
+### Architecture
+
+![Architecture Diagram](docs/sdnflt4v5.svg)
+
+assisted by Eraser AI @ https://www.eraser.io/ai
+
 ---
+
+### Tool 4
+
+| File | Purpose |
+|------|---------|
+| `src/hitl.py` | `Alert` dataclass, `AlertQueue`, `alerts_from_detections()` |
+| `src/explainer.py` | Pattern matching, human-readable explanation + recommendation |
+| `sdn_mininet/mitigator.py` | Installs and removes OpenFlow DROP rules |
+| `dashboard/app.py` | Flask REST API (port 5000) |
+| `dashboard/templates/index.html` | Operator alert review dashboard |
+| `dashboard/static/dashboard.js` | Live polling, decision flow, keyboard shortcuts |
+| `config/hitl_config.yaml` | All Tool 4 thresholds, mitigation params, demo scenarios |
+
+___
 
 ## Project Overview
 
@@ -101,7 +130,7 @@ The project runs on **Ubuntu 20.04** with **Python 3.10**, **Mininet 2.3.1b4**, 
 
 ---
 
-## Repository Structure
+### Repository Structure
 
 ```
 
@@ -755,34 +784,9 @@ The http traffic times out but the pings suceed.
 The injected rule carries cookie `0xDEADBEEFCAFE0001` at priority 40000 and is
 visible in `ovs-ofctl dump-flows`.
 
----
+___
 
-## Tool 4: Human-in-the-Loop security dashboard
-
-Tool 4 is the human-centered security layer. It detects anomalous flows,
-explains **why** each flow was flagged, presents the operator with a clear
-recommendation, and waits for the operator to decide whether to block, monitor,
-or ignore. No traffic is ever blocked automatically.
-
-### Architecture
-
-![Architecture Diagram](docs/sdnflt4v5.svg)
-
-assisted by Eraser AI @ https://www.eraser.io/ai
-
----
-
-### Tool 4
-
-| File | Purpose |
-|------|---------|
-| `src/hitl.py` | `Alert` dataclass, `AlertQueue`, `alerts_from_detections()` |
-| `src/explainer.py` | Pattern matching, human-readable explanation + recommendation |
-| `sdn_mininet/mitigator.py` | Installs and removes OpenFlow DROP rules |
-| `dashboard/app.py` | Flask REST API (port 5000) |
-| `dashboard/templates/index.html` | Operator alert review dashboard |
-| `dashboard/static/dashboard.js` | Live polling, decision flow, keyboard shortcuts |
-| `config/hitl_config.yaml` | All Tool 4 thresholds, mitigation params, demo scenarios |
+## Tool 4
 
 ### Quick start (offline or no Mininet needed)
 
