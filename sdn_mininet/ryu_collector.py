@@ -130,6 +130,15 @@ class SDNSanitizerController(app_manager.RyuApp):
         # track per-conversation packet/byte counts ourselves here, keyed
         # by (dpid, src_ip, dst_ip, src_port, dst_port, protocol).
         self._soft_flow_stats: Dict[tuple, dict] = {}
+        # Per-flow previous cumulative counters, keyed by (dpid, cookie, match-signature).
+        # OVS FlowStatsReply reports byte_count/packet_count/duration as ever-growing
+        # cumulative totals for the life of a flow rule. For a sustained flood that
+        # means one flow whose duration climbs forever, so it "ages out" of the
+        # anomaly model's short-burst signature within seconds. We store the previous
+        # totals here and emit per-poll DELTAS instead, so a steady flood shows a
+        # consistent high per-interval rate with a small (~poll-length) duration on
+        # every poll — a stable, flaggable signature that never ages away.
+        self._prev_flow_counters: Dict[tuple, dict] = {}
         # MAC -> IP mapping built opportunistically from ARP and IPv4 packet-in payloads.
         # Used by _stat_to_row as a fallback when _flow_ip_cache has no entry.
         self.mac_to_ip: Dict[str, str] = {}
@@ -399,6 +408,33 @@ class SDNSanitizerController(app_manager.RyuApp):
         if getattr(stat, "cookie", 0) in CONTROL_PLANE_COOKIES:
             return None
 
+        # Per-poll DELTA counters. OVS reports cumulative totals for a flow's
+        # life; a sustained flood becomes one flow whose duration climbs forever
+        # and drifts out of the model's short-burst signature. Emit the change
+        # since the previous poll instead, so a steady flood keeps a consistent
+        # high-rate / short-duration shape every poll. Zero-delta flows are
+        # skipped, which also silences idle-but-installed rules.
+        _key = (dpid, getattr(stat, "cookie", 0), str(stat.match))
+        _cum_duration = stat.duration_sec + stat.duration_nsec / 1e9
+        _prev = self._prev_flow_counters.get(_key)
+        if (_prev is None
+                or stat.byte_count < _prev["bytes"]
+                or _cum_duration < _prev["duration"]):
+            d_bytes = stat.byte_count
+            d_packets = stat.packet_count
+            d_duration = _cum_duration
+        else:
+            d_bytes = stat.byte_count - _prev["bytes"]
+            d_packets = stat.packet_count - _prev["packets"]
+            d_duration = _cum_duration - _prev["duration"]
+        self._prev_flow_counters[_key] = {
+            "bytes": stat.byte_count,
+            "packets": stat.packet_count,
+            "duration": _cum_duration,
+        }
+        if d_bytes <= 0 and d_packets <= 0:
+            return None
+
         match = stat.match
         src_mac = match.get("eth_src", "")
         dst_mac = match.get("eth_dst", "")
@@ -448,9 +484,9 @@ class SDNSanitizerController(app_manager.RyuApp):
                 "src_port": match.get("tcp_src", match.get("udp_src", 0)),
                 "dst_port": match.get("tcp_dst", match.get("udp_dst", 0)),
                 "protocol": protocol,
-                "bytes": stat.byte_count,
-                "packets": stat.packet_count,
-                "duration": round(duration, 6),
+                "bytes": d_bytes,
+                "packets": d_packets,
+                "duration": round(d_duration, 6),
                 "flags": "",
                 "label": 0,
             }
@@ -473,9 +509,9 @@ class SDNSanitizerController(app_manager.RyuApp):
             "src_port": cache.get("src_port", match.get("in_port", 0)),
             "dst_port": cache.get("dst_port", 0),
             "protocol": cache.get("protocol", "ethernet"),
-            "bytes": stat.byte_count,
-            "packets": stat.packet_count,
-            "duration": round(duration, 6),
+            "bytes": d_bytes,
+            "packets": d_packets,
+            "duration": round(d_duration, 6),
             "flags": "",
             "label": 0,
         }
