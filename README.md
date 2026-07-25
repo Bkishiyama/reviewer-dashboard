@@ -329,13 +329,21 @@ curl -s -X POST http://localhost:5000/api/alerts/clear
 
 - Test if h1 can send http traffic to h2 in Terminal 2 at the mininet prompt.
   - If you still have the attack going in Mininet and no new alerts, the attack is blocked.
-  - If the attack is going and you need to stop the attack (no mininet prompt), use `Ctrl + C`.
+  - If the attack is going and you need to stop the attack (no mininet prompt):
+```bash
+Ctrl + C
+```
+
+Send http traffic from h1 (10.0.0.1) to h2 (10.0.0.2): 
 
 ```bash
 h1 curl --max-time 3 http://10.0.0.2/
 ```
 
-The above should time out since we blocked it. The pings, below, on Terminal 2's mininet prompt, should go through since we did not block ICMP:
+> The above should time out since we blocked it. The traffic will go through if the block rule expires in 5 minutes.
+
+The pings, below, on Terminal 2's mininet prompt, should go through since we did not block ICMP:
+
 ```bash
 h1 ping -c 3 h2
 ```
@@ -385,7 +393,7 @@ sudo systemctl stop hitl-dashboard
 
 ### Training Federated Learning Model
 
-DO NOT DO THIS. I already trained the model for DigitalOcean so this does not need to be done. If I had too many anamolies, I was planning on training for 1200 seconds.
+**IGNORE THIS SECTION.** I already trained the model for DigitalOcean so this does not need to be done. If I had too many anamolies, I was planning on training for 1200 seconds.
 
 #### Step 1. Start the model
 
