@@ -1445,4 +1445,4 @@ Additional Tool 4 prompts:
 - Copilot: How do I reduce the number of Anomaly traffic that flows through my Dashboard? Can I reduce repetition?
 - Copilot: What is the best way to connect my IoTGoat VM to Mininet such that the Ryu Controller can see the traffic?
 - Copilot: I am getting anomalous traffic from IoTGoat. It is not anomalous. It is not being picked up by Federated Learning. Is there a way to include it so it is not anomalous?
-- Copilot: ... over 100 Troubleshooting questions.
+- Copilot: ... over 400 Troubleshooting questions.
