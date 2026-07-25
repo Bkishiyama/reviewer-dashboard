@@ -231,13 +231,17 @@ I will provide this in the discussion.
 
 #### Step 1. Start up 3 terminals
 
-In all three terminals, use the same username and IP address to ssh into DigitalOcean.
+In all three terminals, use the same username and IP address to ssh into DigitalOcean. Type `yes` for the fingerprint.
 
+> App 1: For **Reviewers 1, 3, 5**
 ```bash
 ssh reviewer@165.227.28.254
 ```
 
-Click `yes` for the fingerprint.
+> App 2: For **Reviewers 2, 4, 6**
+```bash
+ssh reviewer@167.172.201.28
+```
 
 #### Step 2. Start Ryu Controller (Terminal 1)
 
@@ -266,8 +270,15 @@ curl -s http://localhost:5000/api/health
 #### Step 5. Open the Dashboard in your browser
 
 Open Chrome, Edge, or your choice of browser and enter the Url:
+> **For Reviewers 1, 3, 5**
+
 ```url
 http://165.227.28.254:5000
+```
+
+> **For Reviewers 2, 4, 6**
+```url
+http://165.172.201.28:5000
 ```
 
 ### Run the App
