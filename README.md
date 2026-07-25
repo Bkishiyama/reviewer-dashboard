@@ -36,7 +36,7 @@ Watch my videos:
 3. [System Overview](#system-overview)
 4. [Tool 4 Architecture](#tool-4-architecture)
 5. [DigitalOcean Demo](#digitalOcean-droplet)
-6. [Ubuntu 22.04 Lab](#ubuntu-22-lab)
+6. [Ubuntu 22.04 Lab](#ubuntu-22-04-lab)
 7. [Tool 1: Federated Anomaly Detection](#tool-1--federated-anomaly-detection)
 8. [Tool 2: Byzantine-robust Poisoning Defense](#tool-2--byzantine-robust-poisoning-defense)
 9. [Tool 3: OpenFlow FlowMod Injection](#tool-3--openflow-flowmod-injection)
@@ -458,6 +458,8 @@ ___
 
 ## Ubuntu 22.04 Lab
 
+This lab is for Ubuntu 22.04. I tested this in VirtualBox.
+
 ### Prerequisites
 
 I originally built this on Ubuntu 20.04 (native or VM). For Tool 1, I also built it in Docker. 
@@ -466,8 +468,6 @@ In Tools 3 and 4, I transitioned to Ubuntu 22.04. Tool 3 has been tested in both
 This is the set-up for Ubuntu 22.04.
 
 ### Setup
-
-This lab is for Ubuntu 22.04.
 
 *THIS PART IS NOT YET NEEDED*. In another class, I will attach IoTGoat to the network. In progress. 
 1. Import the IoTGoat .vdi into VirtualBox; set its NIC to Internal Network "iotlab"
