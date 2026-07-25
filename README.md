@@ -466,6 +466,10 @@ In Tools 3 and 4, I transitioned to Ubuntu 22.04. Tool 3 has been tested in both
 This is the set-up for Ubuntu 22.04.
 
 ### Setup
+
+This lab is for Ubuntu 22.04.
+
+*THIS PART IS NOT YET NEEDED*. In another class, I will attach IoTGoat to the network. In progress. 
 1. Import the IoTGoat .vdi into VirtualBox; set its NIC to Internal Network "iotlab"
 2. Set Kali's NIC to an Internal Network, "iotlab"
 3. Ubuntu needs a NIC set on "iotlab"
