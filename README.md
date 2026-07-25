@@ -272,26 +272,26 @@ In these commands, I insert them to clear any block rules a user may entered and
 
 #### Step 1. Clear old data flows and the queue
 
-- In Terminal 3, clear any old block rules:
+- In *Terminal 3*, clear any old block rules:
 
 ```bash
 sudo ovs-ofctl del-flows s1 "cookie=0xfeedfacecafe0004/-1" -O OpenFlow13
 ```
 
-- clear the forwarding rules between h1 <-> h2
+- In *Terminal 3*, clear the forwarding rules between h1 <-> h2
 
 ```bash
 sudo ovs-ofctl del-flows s1 "dl_src=00:00:00:00:01:01,dl_dst=00:00:00:00:01:02" -O OpenFlow13
 sudo ovs-ofctl del-flows s1 "dl_src=00:00:00:00:01:02,dl_dst=00:00:00:00:01:01" -O OpenFlow13
 ```
 
-- clear out the alert queue so the new attack shows
+- In *Terminal 3*, clear out the alert queue so the new attack shows
 
 ```bash
 curl -s -X POST http://localhost:5000/api/alerts/clear
 ```
 
-#### Launch the Attack (Terminal 2 - mininet prompt)
+#### Launch the Attack (*Terminal 2* - mininet prompt)
 
 ```bash
 h1 hping3 -S --flood -p 80 h2
@@ -302,16 +302,23 @@ h1 hping3 -S --flood -p 80 h2
 
 #### Wait for scan and check dashboard
 
+In *Terminal 3*, this is optional:
+
 ```bash
 sleep 35
 curl -s http://localhost:5000/api/health
 ```
 
-> Clicking the `Scan now` button in the Dashboard will prompt a scan.
+> Instead of waiting, clicking the **`Scan now`** button in the ***Dashboard*** will prompt a scan.
 
 #### Block the attack
 
-> In the dashboard, look for the alert with **src ip of 10.0.0.1, dst_port 80, dpid 1**. Click `Approve` to block the attack.
+> In the dashboard, look for the alert with:
+> **src ip of 10.0.0.1**
+> **dst_port 80, dpid 1**
+> click `Approve` to block the attack
+
+If you block the attack with src ip of 10.0.0.2, the victim, the attacks will still show up. This is the reply of TCP whereas src ip 10.0.0.1 is the attacker.
 
 #### Prove the Block worked
 
