@@ -324,14 +324,19 @@ sleep 35
 curl -s http://localhost:5000/api/health
 ```
 
-> Instead of waiting, clicking the **`Scan now`** button in the ***Dashboard*** will prompt a scan.
+> Instead of waiting 35 seconds, clicking the **`⚡ Scan now`** button in the ***Dashboard*** will prompt a scan.
 
 #### Block the attack
 
 > In the dashboard, look for the alert with:
+> 
 > **src ip of 10.0.0.1**
+> 
 > **dst_port 80, dpid 1**
-> click `Approve` to block the attack
+>
+> Over a Million Bytes Transferred
+> 
+> click `⛔ Block` which approves to block the attack
 
 If you block the attack with src ip of 10.0.0.2, the victim, the attacks will still show up. This is the reply of TCP whereas src ip 10.0.0.1 is the attacker.
 
