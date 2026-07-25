@@ -46,6 +46,7 @@ Watch my videos:
 13. [Configuration](#configuration)
 14. [Running tests](#running-tests)
 15. [Limitations and known issues](#limitations-and-known-issues)
+16. [AI Statement](#ai-statement)
 
 ---
 
@@ -1406,3 +1407,42 @@ permissive behavior.
 - The DDoS attack happen quickly, I reduced the number of alerts but cannot stop all of them. I test with source port randomization.
 - FL does not pick up IoTGoat's UPnP. It does not get picked up as regular traffic and register's it as an anomaly.
   
+___
+
+## AI Statement
+
+I primarily use Microsoft Edge for my research which is powered by Microsoft Co-Pilot. 
+Co-Pilot seem to go down so I switched to Chat-GPT. 
+Mostly, Co-Pilot help me develop my tool as I fed in my project that I have been working on.
+Since the semester, I have been interested in Software Defined Networks (SDNs) and Machine Learning. 
+
+I planned on doing an AI model that is related to SDNs. I had an idea but a paper was published on my idea:
+
+R. Amin, A. Costanzo, L. R. Alzabin, A. Aqdus, S. F.
+Kamarulzaman, and A. H. Alshehri, “An efficient federated
+learning based defense mechanism for software defined network
+cyber threats through machine learning models,” Scientific
+reports, vol. 15, no. 1, pp. 41 390–25, 2025, place: London
+Publisher: Nature Publishing Group UK. [Online]. Available:
+https://doaj.org/article/2500419466604c8eba835393bf37c5da
+
+I studied the paper and will probably do something similar. Amin et al. provides a GitHub model that I do not rely on. I read about it but have not used, tested, or replicated their study.
+
+I fed the parameters into co-pilot to help me make a novel tool for this project.
+"What is a novel tool that I can make that is used in SDN and utilizes FL in a network."
+
+My prior studies that I did apply to this project is the development of mininet and making an SDN model there.
+This was to only make an emulated network inside mininet for eventual testing - hopefully for my dissertation.
+Amin et al. is what I wanted to do. But, I am staying flexible and hopefully can develop a topic for my dissertation.
+
+I use FlexClip to generate .jpg pictures. I have a license to create AI images that are not subject to copyright laws. I use drawio to create .svg diagrams; this contains pre-drawn shapes but does not rely on AI.
+
+PyCharm used to help with code completion.
+I used Visual Studio Code to develop my dashboard for Tool 4. I used GitHub Codespaces connected to Visual Studio Code to help make my Dashboard. Codespaces allow running my repository in the Cloud along with VS Code and Ubuntu 22.04 (container). Debugger and VS Code extensions are attached. Please see my video setup for VS Code. As an instructor for NVC, I get Codespaces Pro for free. This is offered to students as well. Included is Copilot agents, part of Copilot AI, that can modify code and propose changes. I accepted changes to my Dashboard. I did not accept proposed changes to my overall project. I had agents check the health of my project, i.e., "Check my project and look for any errors." I also did not accept some of the error that Copilot found. In order to fix it, I would have to rewrite some of my programs.  
+
+Additional Tool 4 prompts:
+- Copilot: How do I make a MAC address to IP address table so that I can train on IP addresses? Ryu provides the MAC address tables in its controller.
+- Copilot: How do I reduce the number of Anomaly traffic that flows through my Dashboard? Can I reduce repetition?
+- Copilot: What is the best way to connect my IoTGoat VM to Mininet such that the Ryu Controller can see the traffic?
+- Copilot: I am getting anomalous traffic from IoTGoat. It is not anomalous. It is not being picked up by Federated Learning. Is there a way to include it so it is not anomalous?
+- Copilot: ... over 100 Troubleshooting questions.
