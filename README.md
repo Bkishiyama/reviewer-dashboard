@@ -19,11 +19,11 @@ Watch my videos:
 
 > 🎥 [Tool 4: Human in the Loop](https://youtu.be/udYMWUjQA60)
 > 
-> 📚 with [DigitalOcean Demo](#digitalOcean-droplet)
+> 📚 with [DigitalOcean Copy & Paste Commands](#digitalOcean-droplet)
 > 
-> [Word Document](https://1drv.ms/w/c/0b9ef4570f82165e/IQCY3Pss6RW8Q51Qk0mn2trNARZjd0jVi45gy6y7p6ozHQQ?e=q42xyn)
+> [Tool 4 Commands on Word](https://1drv.ms/w/c/0b9ef4570f82165e/IQCY3Pss6RW8Q51Qk0mn2trNARZjd0jVi45gy6y7p6ozHQQ?e=q42xyn)
 
-> 🎥 [Visual Studio Code](https://youtu.be/MVw3uOJcdss)
+> 🎥 [Visual Studio Code Setup](https://youtu.be/MVw3uOJcdss)
 > 
 > I use Visual Studio Code for my dashboard. I attach GitHub Codespaces, and add-ins as shown in the video, which includes CoPilot AI usage.
 
