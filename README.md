@@ -1414,6 +1414,13 @@ is aggressive — a single outlier will be caught but borderline anomalies may
 also be rejected. Lower the threshold in `config/fed_config.yaml` for more
 permissive behavior.
 
+**Network Addresses** are not aligned. I started testing the network in various ways.
+For instance, I added IoTGoat to the network. It is not applicable to Software Tools but for Advanced Networking.
+I tested IoTGoat in Kali, in its own VM, and in a VM with QEMU. For my testing, I used different private IP addresses.
+IotGoat, on QEMU, I used the 10.0.2.15 for QEMU but for Ubuntu (QEMU sits on) uses 10.0.3.15. 
+Also, when learning how to connect the system, I used 192.168.100.1 as the interface address for Mininet. 
+However, this needed a bridge address. The address 192.168.100.211 is used. After my system is coordinated, I will redo the private addresses.
+
 #### Known Issues for Tool 4
 - NetworkManager may reclaim the bridged NIC on boot; the setup script disables
   this automatically, but a reboot may require re-running `make iot-bridge`
