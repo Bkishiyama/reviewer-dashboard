@@ -235,12 +235,12 @@ I will provide this in the discussion.
 
 In all three terminals, use the same username and IP address to ssh into DigitalOcean. Type `yes` for the fingerprint.
 
-> App 1: For **🟦 Reviewers 1, 3, 5**
+> App 1: For **🟦 Reviewers 1 - 6**
 ```bash
 ssh reviewer@165.227.28.254
 ```
 
-> App 2: For **🟩 Reviewers 2, 4, 6**
+> App 2: For 🟩 Reviewers 2, 4, 6 (currently turned off - use App 1)
 ```bash
 ssh reviewer@167.172.201.28
 ```
@@ -272,13 +272,13 @@ curl -s http://localhost:5000/api/health
 #### Step 5. Open the Dashboard in your browser
 
 Open Chrome, Edge, or your choice of browser and enter the Url:
-> **🟦 For Reviewers 1, 3, 5**
+> **🟦 For Reviewers**
 
 ```url
 http://165.227.28.254:5000
 ```
 
-> **🟩 For Reviewers 2, 4, 6**
+> 🟩 For Reviewers 2, 4, 6 (currently turned off)
 ```url
 http://167.172.201.28:5000
 ```
