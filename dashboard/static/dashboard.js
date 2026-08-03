@@ -39,7 +39,7 @@ function setText(id, val) {
   if (el) el.textContent = val ?? '—';
 }
 
-// Format helpers - helps read: show in MB, KB
+// Format helpers - helps read by show in MB, KB
 function fmtBytes(n) {
   n = Number(n) || 0;
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(2) + ' MB';
@@ -62,7 +62,7 @@ function fmtUptime(s) {
   return `${h}h ${m}m`;
 }
 
-// displays just now, 2m ago, 1h ago
+// displays time as just now, 2m ago, 1h ago
 function fmtAge(unixTs) {
   const d = Math.round(Date.now() / 1000 - unixTs);
   if (d < 5) return 'just now';
@@ -89,11 +89,11 @@ const SEV_COLORS = {
   low: { fg: '#3b82f6', bg: '#0d1f3c', border: '#3b82f6' },
 };
 
-// use foreground colors for severity
+// use foreground colors equals severity
 function sevColor(sev) { return (SEV_COLORS[sev] || SEV_COLORS.low).fg; }
 function sevBg(sev) { return (SEV_COLORS[sev] || SEV_COLORS.low).bg; }
 
-// if high confidence, return red. med, ret amber; low, ret blue
+// if high confidence, return red. med, ret amber; low, ret blu
 function confColor(pct) {
   if (pct >= 80) return '#ef4444';
   if (pct >= 55) return '#f59e0b';
@@ -140,6 +140,7 @@ const API = {
   decide: body => apiFetch('/api/decide', { method: 'POST', body: JSON.stringify(body) }),
   scan: body => apiFetch('/api/scan', { method: 'POST', body: JSON.stringify(body || {}) }),
   stats: () => apiFetch('/api/stats'),
+  clear: () => apiFetch('/api/alerts/clear', { method: 'POST' }),
   mitLog: (n=100) => apiFetch(`/api/mitigation/log?lines=${n}`),
   verify: (dpid=1) => apiFetch(`/api/mitigation/verify?dpid=${dpid}`),
   unblock: body => apiFetch('/api/mitigation/unblock', { method: 'POST', body: JSON.stringify(body) }),
@@ -186,7 +187,7 @@ async function refreshAlerts() {
     renderStats();
     updateChartData();
 
-    // Notify on genuinely new alerts
+    // Notify on new alerts
     if (prev > 0 && newAlerts.length > 0) {
       notifyNewAlerts(newAlerts);
     }
@@ -202,8 +203,7 @@ async function refreshAlerts() {
   }
 }
 
-// Alert list render
-// filter alerts to show a specific alert
+// Alert list render - filter alerts to show a specific alert
 function filteredAlerts() {
   if (State.tab === 'pending') return State.alerts.filter(a => a.decision === 'pending');
   if (State.tab === 'resolved') return State.alerts.filter(a => a.decision !== 'pending');
@@ -446,7 +446,7 @@ function renderDecisionBar(a) {
   });
 }
 
-// 10. Decision Submission
+// -> Decision Submission
 async function decide(decision) {
   if (!State.currentId) return;
 
@@ -522,7 +522,7 @@ function hideMitToast() {
   clearTimeout(toast._timer);
 }
 
-// 11. Stats Bar
+// -> Stats Bar
 function renderStats() {
   const a = State.alerts;
   setText('s-total', a.length);
@@ -536,7 +536,7 @@ function renderStats() {
   setText('count-low', a.filter(x => x.severity === 'low').length);
 }
 
-// 12. Sevirity Chart (canvas sparkline, no library)
+// -> Sevirity Chart (canvas sparkline, no library)
 function updateChartData() {
   const a = State.alerts;
   const cd = State.chartData;
@@ -618,7 +618,7 @@ function drawChart() {
   });
 }
 
-// 13. Scan trigger
+// -> Scan trigger
 async function triggerScan() {
   const btn = $('scan-btn');
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Scanning…'; }
@@ -637,7 +637,32 @@ async function triggerScan() {
   }
 }
 
-// 14. Verify Rules Modal
+// -> Clear-queue trigger: wipes the in-memory alert queue (pending + resolved) --Aug 3--
+// via POST /api/alerts/clear. Resets seenIds so new-alert notifications
+// behave correctly after the reset.
+async function clearQueue() {
+  const btn = $('clear-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Clearing…'; }
+  try {
+    const d = await API.clear();
+    if (btn) btn.textContent = `🧹 −${d.cleared} cleared`;
+    State.alerts = [];
+    State.currentId = null;
+    State.seenIds.clear();
+    renderAlertList();
+    renderStats();
+    showDetailPanel(false);
+  } catch (e) {
+    console.warn('[Dashboard] Clear queue failed:', e.message);
+    if (btn) btn.textContent = '🧹 Clear queue';
+  } finally {
+    setTimeout(() => {
+      if (btn) { btn.textContent = '🧹 Clear queue'; btn.disabled = false; }
+    }, 2500);
+  }
+}
+
+// -> Verify Rules Modal
 async function verifyRules(dpid = 1) {
   const ov = $('verify-overlay');
   if (!ov) return;
@@ -672,7 +697,7 @@ function closeVerify() {
   if (ov) ov.style.display = 'none';
 }
 
-// 15. Mitigation Log
+// -> Mitigation Log
 async function openMitLog() {
   const ov = $('log-overlay');
   if (!ov) return;
@@ -699,7 +724,7 @@ function closeMitLog() {
   if (ov) ov.style.display = 'none';
 }
 
-// 16. Unblock Form
+// -> Unblock Form
 function openUnblockForm(alert) {
   // Populate the unblock modal with the alert's flow details
   const ov = $('unblock-overlay');
@@ -749,7 +774,7 @@ async function submitUnblock() {
   }
 }
 
-// 17. CSV Export
+// -> CSV Export
 function exportCSV() {
   const alerts = filteredAlerts();
   if (alerts.length === 0) { alert('No alerts to export.'); return; }
@@ -779,7 +804,7 @@ function exportCSV() {
   URL.revokeObjectURL(url);
 }
 
-// 18. Keyboard Nav
+// -> Keyboard Nav
 function initKeyboard() {
   document.addEventListener('keydown', e => {
     // Ignore keypresses inside input fields
@@ -829,7 +854,7 @@ function toggleKeyboardHelp() {
   el.style.display = el.style.display === 'flex' ? 'none' : 'flex';
 }
 
-// 19. Tab switching
+// -> Tab switching
 function setTab(tab, el) {
   State.tab = tab;
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -837,7 +862,7 @@ function setTab(tab, el) {
   renderAlertList();
 }
 
-// 20. New Alert Notification
+// -> New Alert Notification
 function notifyNewAlerts(newAlerts) {
   const highCount = newAlerts.filter(a => a.severity === 'high').length;
 
@@ -891,7 +916,7 @@ function toggleAudio() {
   }
 }
 
-// 21. Close overlays on background check
+// -> Close overlays on background check
 function initOverlayDismiss() {
   ['verify-overlay', 'log-overlay', 'unblock-overlay', 'keyboard-help'].forEach(id => {
     const el = $(id);
@@ -902,7 +927,7 @@ function initOverlayDismiss() {
   });
 }
 
-// 22. HTML escape
+// -> HTML escape
 function esc(s) {
   return String(s ?? '')
     .replace(/&/g, '&amp;')
@@ -912,7 +937,7 @@ function esc(s) {
     .replace(/'/g, '&#39;');
 }
 
-// 23. Public Interface, called from index.html onclick attributes
+// -> Public Interface, called from index.html onclick attributes
 // index.html uses onclick="Dashboard.selectAlert(...)" etc.
 // Expose all public functions under a single namespace to avoid globals.
 window.Dashboard = {
@@ -945,7 +970,7 @@ window.setTab = setTab;
 window.toggleAudio = toggleAudio;
 window.toggleKeyboardHelp = toggleKeyboardHelp;
 
-// 24. Boot function
+// -> Boot function
 function boot() {
   initKeyboard();
   initOverlayDismiss();
