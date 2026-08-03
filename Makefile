@@ -201,6 +201,13 @@ verify:
 	@echo "[*] Tool 4 defensive: 0xfeedfacecafe0004  priority=30000"
 	@echo "[*]  Tool 3 rogue: 0xdeadbeefcafe0001  priority=40000"
 
+# Clear the in-memory alert queue via the dashboard API -----Aug 3 fix-----
+clear-queue:
+	curl -s -X POST http://127.0.0.1:5000/api/alerts/clear
+	@echo ""
+	@echo "[!] Alert queue cleared."
+
+
 # Cleanup
 # Remove all generated files.
 # Preserves source code, configs, and the data/ directory structure.
@@ -304,7 +311,7 @@ clean-live-data:
 # the fresh baseline. Make sure ryu-manager has been restarted (see the
 # reminder printed by clean-live-data) before this actually starts capturing.
 capture-clean: clean-live-data
-	@echo "[!] Capturing clean baseline traffic (no attacks) — exit Mininet CLI (Ctrl+D) to stop"
+	@echo "[!] Capturing clean baseline traffic (no attacks) - exit Mininet CLI (Ctrl+D) to stop"
 	sudo $(PYTHON) sdn_mininet/topology.py --time 300
 
 iot-bridge-clean:
