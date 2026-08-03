@@ -29,6 +29,7 @@
     <div class="header-actions">
       <button class="btn" onclick="triggerScan()" id="scan-btn">⚡ Scan now</button>
       <button class="btn" onclick="verifyRules()">🔎 Verify rules</button>
+      <button class="btn" onclick="clearQueue()" id="clear-btn">🧹 Clear queue</button>
       <button class="btn btn-primary" onclick="openMitLog()">📋 Mitigation log</button>
     </div>
   </header>
@@ -588,6 +589,32 @@ async function triggerScan() {
     await fetchAlerts();
   } catch {
     btn.textContent = '⚡ Scan now';
+    btn.disabled = false;
+  }
+}
+
+// Clear-queue trigger: wipes the in-memory alert queue (pending + resolved)
+// via POST /api/alerts/clear. Does not touch CSV data or scanned-row
+// bookkeeping, so already-scanned rows will not re-fire on the next scan. ----Aug 3 change instead of turning on and off the dashboard
+async function clearQueue() {
+  const btn = $('clear-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Clearing…';
+  try {
+    const r = await fetch(`${API}/api/alerts/clear`, { method: 'POST' });
+    const d = await r.json();
+    btn.textContent = `🧹 −${d.cleared} cleared`;
+    // Reset local UI state so cleared alerts do not linger in the list
+    allAlerts = [];
+    currentAlertId = null;
+    renderAlertList();
+    updateStats();
+    // Return the detail pane to its empty placeholder state
+    $('detail-view').className = 'detail-view';
+    $('detail-placeholder').style.display = '';
+    setTimeout(() => { btn.textContent = '🧹 Clear queue'; btn.disabled = false; }, 2500);
+  } catch {
+    btn.textContent = '🧹 Clear queue';
     btn.disabled = false;
   }
 }
