@@ -226,6 +226,12 @@ In this droplet, I use Ubuntu 22.04. All dependencies are already installed and 
 I follow these commands with the shutdown or clean up cycle. I start my demonstration with some clearing out the queue and CSV files that are used for training and detection.
 I do this if a person who shares the droplet, does not properly clean up the application. If not properly shutdown, the app will behave unpredictably and may produce errors.
 
+### DigitalOcean Prep
+
+I will prepare the Droplet. I will use the following user:
+- su - reviewer
+- 
+
 ### Prepare the environment
 
 Open up three terminals. In my video, I open up three Powershells version 7.6.4. If using Ubuntu, open up 3 CLIs. ssh into all three using the same username and IP address. 
